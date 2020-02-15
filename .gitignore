@@ -1,3 +1,10 @@
+# Saved models and logs
+*runs
+*models
+
+# vs code
+settings.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
