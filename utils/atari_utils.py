@@ -8,8 +8,9 @@ def get_state(obs):
     """
     Convert an open AI gym state to numpy state.
     """
+    obs = _preprocess(obs)
     state = np.array(obs)
-    state = state.transpose((2, 0, 1))
+    # state = state.transpose((2, 0, 1))
     state = torch.from_numpy(state)
     return state.unsqueeze(0)
 
@@ -31,3 +32,16 @@ def eps_decay(steps_done, EPS_START=1, EPS_END=0.01, EPS_DECAY=1000000):
     Compute the current epsilon threshold based on the number of steps done.
     """
     return EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps_done / EPS_DECAY)
+
+
+def _to_grayscale(img):
+    return np.mean(img, axis=2).astype(np.uint8)
+
+def _downsample(img):
+    return img[::2, ::2]
+
+def _preprocess(img):
+    return _to_grayscale(_downsample(img))
+
+def transform_reward(reward):
+    return np.sign(reward)
