@@ -12,13 +12,14 @@ class DQN(nn.Module):
         self.fc1 = nn.Linear(64*7*7, 512)
         self.fc2 = nn.Linear(512, n_actions)
 
-        torch.nn.init.kaiming_normal_(self.conv1.weight, nonlinearity='relu')
-        torch.nn.init.kaiming_normal_(self.conv2.weight, nonlinearity='relu')
-        torch.nn.init.kaiming_normal_(self.conv3.weight, nonlinearity='relu')
-        torch.nn.init.kaiming_normal_(self.fc1.weight, nonlinearity='relu')
-        torch.nn.init.kaiming_normal_(self.fc2.weight, nonlinearity='relu')
-        self.fc1.bias.data.fill_(0.0)
-        self.fc2.bias.data.fill_(0.0)
+    def init_weights(self, m):
+        if type(m) == nn.Linear:
+            torch.nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+            m.bias.data.fill_(0.0)
+
+        if type(m) == nn.Conv2d:
+            torch.nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+            # m.bias.data.fill_(0.1)
 
     def forward(self, x):
         x = x.float() / 255.
@@ -82,9 +83,10 @@ class MC_DQN(nn.Module):
             self.conv2.weight, mode='fan_in', nonlinearity='relu')
         nn.init.kaiming_uniform_(
             self.conv3.weight, mode='fan_in', nonlinearity='relu')
-        nn.init.constant_(self.conv1.bias, 0)
-        nn.init.constant_(self.conv2.bias, 0)
-        nn.init.constant_(self.conv3.bias, 0)
+        nn.init.kaiming_uniform_(
+            self.fc4.weight, mode='fan_in', nonlinearity='relu')
+        nn.init.constant_(self.fc4.bias, 0)
+        nn.init.constant_(self.head.bias, 0)
 
     def forward(self, x, last_layer=False):
         x = x.float() / 255
@@ -100,4 +102,3 @@ class MC_DQN(nn.Module):
 
 def to_policy(q_values, tau=0.1):
     return F.softmax(q_values / tau, dim=1)
-

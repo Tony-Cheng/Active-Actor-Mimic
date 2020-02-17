@@ -85,43 +85,27 @@ def fp(n_frame):
     h = n_frame.shape[-2]
     return n_frame.view(1, h, h)
 
-
-class FrameProcessor():
-    def __init__(self, im_size=84):
-        self.im_size = im_size
-
-    def process(self, frame):
-        im_size = self.im_size
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        frame = frame[46:160+46, :]
-        frame = cv2.resize(frame, (im_size, im_size),
-                           interpolation=cv2.INTER_LINEAR)
-        frame = frame.reshape((1, im_size, im_size))
-
-        x = torch.from_numpy(frame)
-        return x
-
-
 def evaluate(step, policy_net, device, env, n_actions, eps=0.05, num_episode=5):
     env = wrap_deepmind(env)
     sa = ActionSelector(eps, eps, policy_net, 1, n_actions, device)
-    all_rewards = []
+    e_rewards = []
     q = deque(maxlen=5)
     for _ in range(num_episode):
         env.reset()
-        episode_reward = 0
-        for _ in range(10):  # no-op
+        e_reward = 0
+        for _ in range(10): # no-op
             n_frame, _, done, _ = env.step(0)
             n_frame = fp(n_frame)
             q.append(n_frame)
 
         while not done:
             state = torch.cat(list(q))[1:].unsqueeze(0)
-            action, eps = sa.select_action(state, training=False)
+            action, eps = sa.select_action(state, True)
             n_frame, reward, done, _ = env.step(action)
             n_frame = fp(n_frame)
             q.append(n_frame)
+            
+            e_reward += reward
+        e_rewards.append(e_reward)
 
-            episode_reward += reward
-        all_rewards.append(episode_reward)
-    return float(sum(all_rewards)) / float(num_episode)
+    return float(sum(e_rewards))/float(num_episode)

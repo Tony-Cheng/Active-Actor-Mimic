@@ -28,7 +28,7 @@ Transition = namedtuple(
 
 class ReplayMemory(object):
     def __init__(self, capacity, state_shape, n_actions, device):
-        c,h,w = state_shape
+        c, h, w = state_shape
         self.capacity = capacity
         self.device = device
         self.m_states = torch.zeros((capacity, c, h, w), dtype=torch.uint8)
@@ -40,10 +40,10 @@ class ReplayMemory(object):
 
     def push(self, state, action, reward, done):
         """Saves a transition."""
-        self.m_states[self.position] = state # 5,84,84
-        self.m_actions[self.position,0] = action
-        self.m_rewards[self.position,0] = reward
-        self.m_dones[self.position,0] = done
+        self.m_states[self.position] = state  # 5,84,84
+        self.m_actions[self.position, 0] = action
+        self.m_rewards[self.position, 0] = reward
+        self.m_dones[self.position, 0] = done
         self.position = (self.position + 1) % self.capacity
         self.size = max(self.size, self.position)
 
@@ -55,9 +55,10 @@ class ReplayMemory(object):
         br = self.m_rewards[i].to(self.device).float()
         bd = self.m_dones[i].to(self.device).float()
         return bs, ba, br, bns, bd
-    
+
     def __len__(self):
         return self.size
+
 
 class RankReplayMemory(object):
     def __init__(self, capacity, rank_func):
