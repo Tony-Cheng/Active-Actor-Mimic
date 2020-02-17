@@ -6,9 +6,10 @@ LEFT = 1
 RIGHT = 2
 DOWN = 3
 
-RED = 0
+WHITE = 0
 GREEN = 1
 BLUE = 2
+RED=3
 
 NORMAL = 0
 GOAL = 1
@@ -23,6 +24,7 @@ class KGW(object):
         self.grid_color = np.zeros((9, 9))
         self.grid_object = np.zeros((9, 9))
         self.agent_pos = (int(random.random() * 9), int(random.random() * 9))
+        self.build_goals_and_lava()
 
     def _random_empty_position(self):
         position = (int(random.random() * 9), int(random.random() * 9))
@@ -63,7 +65,7 @@ class KGW(object):
             if self.agent_pos[1] < 8:
                 self.agent_pos = (self.agent_pos[0], self.agent_pos[1] + 1)
         if action == DOWN:
-            if self.agent_pos[8] < 8:
+            if self.agent_pos[0] < 8:
                 self.agent_pos = (self.agent_pos[0] + 1, self.agent_pos[1])
         if not self.grid_color[self.agent_pos] == 0:
             reward += 1
@@ -76,14 +78,15 @@ class KGW(object):
         return obs, reward, done, None
 
     def build_obs(self):
-        obs = np.zeros((9, 9, 7))
+        obs = np.zeros((9, 9, 8))
         obs[:, :, 0] = (self.grid_object == NORMAL) + 0 
         obs[:, :, 1] = (self.grid_object == GOAL) + 0 
         obs[:, :, 2] = (self.grid_object == LAVA) + 0 
-        obs[:, :, 3] = (self.grid_color == RED) + 0 
-        obs[:, :, 4] = (self.grid_color == GREEN) + 0 
-        obs[:, :, 5] = (self.grid_color == BLUE) + 0
-        obs[self.agent_pos[0], self.agent_pos[1], 6] = 1 
+        obs[:, :, 3] = (self.grid_color == WHITE) + 0
+        obs[:, :, 4] = (self.grid_color == RED) + 0 
+        obs[:, :, 5] = (self.grid_color == GREEN) + 0 
+        obs[:, :, 6] = (self.grid_color == BLUE) + 0
+        obs[self.agent_pos[0], self.agent_pos[1], 7] = 1 
         return obs
 
 
