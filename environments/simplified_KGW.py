@@ -20,6 +20,7 @@ class KGW(object):
     def __init__(self, max_steps=50):
         self.grid = np.zeros((9, 9))
         self.max_steps = max_steps
+        self.n_actions = 4
 
     def reset(self):
         self.grid_color = np.zeros((9, 9))
@@ -27,6 +28,7 @@ class KGW(object):
         self.agent_pos = (int(random.random() * 9), int(random.random() * 9))
         self.build_goals_and_lava()
         self.num_steps = 0
+        return self.build_obs()
 
     def _random_empty_position(self):
         position = (int(random.random() * 9), int(random.random() * 9))
@@ -71,24 +73,22 @@ class KGW(object):
                 self.agent_pos = (self.agent_pos[0] + 1, self.agent_pos[1])
         if not self.grid_color[self.agent_pos] == 0:
             reward += 1
-        if self.grid_object[self.agent_pos] == LAVA or self.num_steps == self.max_steps:
+        if self.grid_object[self.agent_pos] == LAVA or self.num_steps >= self.max_steps:
             done = True
-        if done:
-            obs = None
-        else:
-            obs = self.build_obs()
+        self.num_steps += 1
+        obs = self.build_obs()
         return obs, reward, done, None
 
     def build_obs(self):
-        obs = np.zeros((9, 9, 8))
-        obs[:, :, 0] = (self.grid_object == NORMAL) + 0 
-        obs[:, :, 1] = (self.grid_object == GOAL) + 0 
-        obs[:, :, 2] = (self.grid_object == LAVA) + 0 
-        obs[:, :, 3] = (self.grid_color == WHITE) + 0
-        obs[:, :, 4] = (self.grid_color == RED) + 0 
-        obs[:, :, 5] = (self.grid_color == GREEN) + 0 
-        obs[:, :, 6] = (self.grid_color == BLUE) + 0
-        obs[self.agent_pos[0], self.agent_pos[1], 7] = 1 
+        obs = np.zeros((8, 9, 9))
+        obs[0, :, :] = (self.grid_object == NORMAL) + 0 
+        obs[1, :, :] = (self.grid_object == GOAL) + 0 
+        obs[2, :, :] = (self.grid_object == LAVA) + 0 
+        obs[3, :, :] = (self.grid_color == WHITE) + 0
+        obs[4, :, :] = (self.grid_color == RED) + 0 
+        obs[5, :, :] = (self.grid_color == GREEN) + 0 
+        obs[6, :, :] = (self.grid_color == BLUE) + 0
+        obs[7, self.agent_pos[0], self.agent_pos[1]] = 1 
         return obs
 
 

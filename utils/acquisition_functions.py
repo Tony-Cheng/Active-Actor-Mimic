@@ -67,7 +67,7 @@ def mc_var_ratio(policy_net, states, tau=0.1, batch_size=128, num_iters=10, devi
     return var_ratio
 
 def mc_random(policy_net, states, tau=0.1, batch_size=128, num_iters=10, device='cuda'):
-    return torch.randn((states.shape[0]))
+    return torch.randn((states.shape[0]), dtype=torch.float)
 
 def to_policy(q_values, tau=0.1):
     return F.softmax(q_values / tau, dim=1)
