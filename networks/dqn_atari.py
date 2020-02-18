@@ -21,13 +21,16 @@ class DQN(nn.Module):
             torch.nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
             # m.bias.data.fill_(0.1)
 
-    def forward(self, x):
+    def forward(self, x, last_layer=False):
         x = x.float() / 255.
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
         x = F.relu(self.fc1(x.view(x.size(0), -1)))
-        return self.fc2(x)
+        if last_layer:
+            return self.fc2(x), x
+        else:
+            return self.fc2(x)
 
 
 class MC_DQN(nn.Module):

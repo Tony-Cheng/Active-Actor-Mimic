@@ -17,14 +17,16 @@ LAVA = 2
 AGENT = 3
 
 class KGW(object):
-    def __init__(self):
+    def __init__(self, max_steps=50):
         self.grid = np.zeros((9, 9))
+        self.max_steps = max_steps
 
     def reset(self):
         self.grid_color = np.zeros((9, 9))
         self.grid_object = np.zeros((9, 9))
         self.agent_pos = (int(random.random() * 9), int(random.random() * 9))
         self.build_goals_and_lava()
+        self.num_steps = 0
 
     def _random_empty_position(self):
         position = (int(random.random() * 9), int(random.random() * 9))
@@ -69,7 +71,7 @@ class KGW(object):
                 self.agent_pos = (self.agent_pos[0] + 1, self.agent_pos[1])
         if not self.grid_color[self.agent_pos] == 0:
             reward += 1
-        if self.grid_object[self.agent_pos] == LAVA:
+        if self.grid_object[self.agent_pos] == LAVA or self.num_steps == self.max_steps:
             done = True
         if done:
             obs = None

@@ -3,6 +3,7 @@ import random
 import torch
 import cv2
 
+
 class ReplayMemory(object):
     def __init__(self, capacity, state_shape, n_actions, device):
         c, h, w = state_shape
@@ -38,7 +39,7 @@ class ReplayMemory(object):
 
 
 class RankedReplayMemory(object):
-    def __init__(self, capacity, state_shape, n_actions, device):
+    def __init__(self, capacity, state_shape, n_actions, rank_func, AMN_net, device='cuda'):
         c, h, w = state_shape
         self.capacity = capacity
         self.device = device
@@ -48,6 +49,8 @@ class RankedReplayMemory(object):
         self.m_dones = torch.zeros((capacity, 1), dtype=torch.bool)
         self.position = 0
         self.size = 0
+        self.rank_func = rank_func
+        self.AMN_net = AMN_net
 
     def push(self, state, action, reward, done):
         """Saves a transition."""
@@ -58,13 +61,17 @@ class RankedReplayMemory(object):
         self.position = (self.position + 1) % self.capacity
         self.size = max(self.size, self.position)
 
-    def sample(self, bs):
-        i = torch.randint(0, high=self.size, size=(bs,))
-        bs = self.m_states[i, :4].to(self.device)
-        bns = self.m_states[i, 1:].to(self.device)
-        ba = self.m_actions[i].to(self.device)
-        br = self.m_rewards[i].to(self.device).float()
-        bd = self.m_dones[i].to(self.device).float()
+    def sample(self, percentage=0.1):
+        _, i = torch.sort(self.rank_func(
+            self.AMN_net, self.m_states[: self.size,:4], device=self.device), descending=True)
+        i = i[: int(percentage * self.size)]
+        i = i[torch.randperm(i.shape[0])]
+        # i = torch.randint(0, high=self.size, size=(bs,))
+        bs = self.m_states[i, :4]
+        bns = self.m_states[i, 1:]
+        ba = self.m_actions[i]
+        br = self.m_rewards[i].float()
+        bd = self.m_dones[i].float()
         return bs, ba, br, bns, bd
 
     def __len__(self):

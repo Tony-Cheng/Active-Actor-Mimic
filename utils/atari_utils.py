@@ -16,7 +16,7 @@ class ActionSelector(object):
         self._n_actions = n_actions
         self._device = device
 
-    def select_action(self, state, training=False):
+    def select_action(self, state, training=True):
         sample = random.random()
         if training:
             self._eps -= (self._INITIAL_EPSILON -

@@ -55,17 +55,19 @@ def mc_var_ratio(policy_net, states, tau=0.1, batch_size=128, num_iters=10, devi
         else:
             batch_len = states.shape[0] - i
         next_states = states[i: i + batch_len, :, :].to(device)
-        actions = torch.zeros((states.shape[0], num_iters))
-        for _ in range(num_iters - 1):
+        actions = torch.zeros((next_states.shape[0], num_iters))
+        for j in range(num_iters - 1):
             with torch.no_grad():
                 q_values = policy_net(next_states)
-                actions = torch.argmax(q_values, dim=1)
-        modal = torch.mode(actions, dim=1)
+                actions[:,j] = torch.argmax(q_values, dim=1)
+        modal = torch.mode(actions, dim=1)[0].unsqueeze(1)
         frequency = torch.sum(actions == modal, 1)
         current_var_ration = 1 - frequency / num_iters
         var_ratio[i : i + batch_len] = current_var_ration
     return var_ratio
 
+def mc_random(policy_net, states, tau=0.1, batch_size=128, num_iters=10, device='cuda'):
+    return torch.randn((states.shape[0]))
 
 def to_policy(q_values, tau=0.1):
     return F.softmax(q_values / tau, dim=1)
