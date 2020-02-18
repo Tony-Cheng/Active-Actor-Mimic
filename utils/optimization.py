@@ -51,8 +51,9 @@ def AMN_optimization(AMN_net, expert_net, optimizer, memory, feature_regression=
 
     AMN_policy = to_policy(AMN_q_value)
     expert_policy = to_policy(expert_q_value).detach()
+    AMN_policy += (AMN_policy == 0) * (1e-8)
 
-    loss -= torch.sum(expert_policy * torch.log(AMN_policy + 1e-8))
+    loss -= torch.sum(expert_policy * torch.log(AMN_policy))
 
     optimizer.zero_grad()
     loss.backward()
@@ -84,7 +85,9 @@ def _AMN_optimization(AMN_net, expert_net, optimizer, state_batch, feature_regre
     AMN_policy = to_policy(AMN_q_value)
     expert_policy = to_policy(expert_q_value).detach()
 
-    loss -= torch.sum(expert_policy * torch.log(AMN_policy + 1e-8))
+    AMN_policy += (AMN_policy == 0) * (1e-8)
+
+    loss -= torch.sum(expert_policy * torch.log(AMN_policy))
 
     optimizer.zero_grad()
     loss.backward()
