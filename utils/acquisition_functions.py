@@ -18,7 +18,7 @@ def mc_entropy(policy_net, states, tau=0.1, batch_size=128, num_iters=10, device
                 q_values = policy_net(next_states)
                 policy += to_policy(q_values, tau=tau)
         policy /= num_iters
-        current_entropy = - torch.sum(policy * torch.log(policy), 1)
+        current_entropy = - torch.sum(policy * torch.log(policy + 1e-8), 1)
         entropy[i: i + batch_len] = current_entropy.to('cpu')
     return entropy
 
@@ -42,7 +42,7 @@ def mc_BALD(policy_net, states, tau=0.1, batch_size=128, num_iters=10, device='c
                 q_values = policy_net(next_states)
                 policy = to_policy(q_values, tau=tau)
                 current_cond_entropy += torch.sum(policy *
-                                                  torch.log(policy), 1)
+                                                  torch.log(policy + 1e-8), 1)
         current_cond_entropy /= num_iters
         cond_entropy[i: i + batch_len] = current_cond_entropy.to('cpu')
     return entropy + cond_entropy
