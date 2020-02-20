@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+import random
+import torch.optim as optim 
 
 
 class DQN(nn.Module):
@@ -62,6 +64,49 @@ class MC_DQN(nn.Module):
             return self.fc2(self.dropout(x)), x
         else:
             return self.fc2(self.dropout(x))
+
+
+class ENS_DQN(nn.Module):
+    def __init__(self, n_actions=4, num_networks=5):
+        super(ENS_DQN, self).__init__()
+        self.ensembles = []
+        self.num_networks = num_networks
+
+        for _ in range(num_networks):
+            new_net = DQN(n_actions)
+            self.ensembles.append(new_net)
+
+    def init_weights(self, m):
+        if type(m) == list:
+            for net in m:
+                net.apply(net.init_weights)
+
+    def to(self, device):
+        for net in self.ensembles:
+            net.to(device)
+        return self
+
+    def forward(self, x, last_layer=False):
+        net = self.ensembles[int(random.random() * self.num_networks)]
+        return net(x, last_layer=last_layer)
+
+class ENS_DQN_Optmizer(nn.Module):
+    def __init__(self, net, lr=0.0001, eps=1.5e-4):
+        super(ENS_DQN_Optmizer, self).__init__()
+        self.optimizers = []
+
+        for next_net in net.ensembles:
+            new_optimizer = optim.Adam(next_net.parameters(), lr=lr, eps=eps)
+            self.optimizers.append(new_optimizer)
+
+    def zero_grad(self):
+        for optim in self.optimizers:
+            optim.zero_grad()
+    
+    def step(self):
+        for optim in self.optimizers:
+            optim.step()
+
 
 
 def to_policy(q_values, tau=0.1):
