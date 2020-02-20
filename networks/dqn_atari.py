@@ -86,28 +86,15 @@ class ENS_DQN(nn.Module):
             net.to(device)
         return self
 
+    def parameters(self):
+        params = []
+        for net in self.ensembles:
+            params.append(net.parameters())
+        return params
+
     def forward(self, x, last_layer=False):
         net = self.ensembles[int(random.random() * self.num_networks)]
         return net(x, last_layer=last_layer)
-
-class ENS_DQN_Optmizer(nn.Module):
-    def __init__(self, net, lr=0.0001, eps=1.5e-4):
-        super(ENS_DQN_Optmizer, self).__init__()
-        self.optimizers = []
-
-        for next_net in net.ensembles:
-            new_optimizer = optim.Adam(next_net.parameters(), lr=lr, eps=eps)
-            self.optimizers.append(new_optimizer)
-
-    def zero_grad(self):
-        for optim in self.optimizers:
-            optim.zero_grad()
-    
-    def step(self):
-        for optim in self.optimizers:
-            optim.step()
-
-
 
 def to_policy(q_values, tau=0.1):
     return F.softmax(q_values / tau, dim=1)
