@@ -17,13 +17,11 @@ The experiments are performed on a variety of acquisition functions described in
 
 Two visualizations of the most uncertained examples are shown below. The first GIF are uncertain examples picked using the entropy function, and the second GIF are uncertain examples picked using the BALD function.
 
-<img src="plots/train_AMN_entropy_perc_5_replacement.gif" width="300">
-<img src="plots/train_AMN_BALD_perc_5.gif" width="300">
+<img src="plots/train_AMN_entropy_perc_5_replacement.gif" width="300"> <img src="plots/train_AMN_BALD_perc_5.gif" width="300">
 
 Two more visualizations of the most uncertained examples are shown below. The first GIF are uncertain examples picked using the variance ratio function, and the second GIF are uncertain examples picked using the random function. 
 
-<img src="plots/train_AMN_var_ratio_perc_5.gif" width="300">
-<img src="plots/train_AMN_random_perc_5.gif" width="300">
+<img src="plots/train_AMN_var_ratio_perc_5.gif" width="300"> <img src="plots/train_AMN_random_perc_5.gif" width="300">
 
 
 
