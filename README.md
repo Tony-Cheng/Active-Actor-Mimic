@@ -15,11 +15,11 @@ The experiments are performed on a variety of acquisition functions described in
 
 ![](plots/Breakout_MC_10_reward.png) ![](plots/Breakout_MC_10_loss.png)
 
-Two visualizations of the most uncertained examples are shown below. The first GIF are uncertain examples picked using the entropy function, and the second GIF are uncertain examples picked using the BALD function.
+Two visualizations of the most uncertained examples are shown below. The left GIF are uncertain examples picked using the entropy function, and the right GIF are uncertain examples picked using the BALD function.
 
 <img src="plots/train_AMN_entropy_perc_5_replacement.gif" width="300"> <img src="plots/train_AMN_BALD_perc_5.gif" width="300">
 
-Two more visualizations of the most uncertained examples are shown below. The first GIF are uncertain examples picked using the variance ratio function, and the second GIF are uncertain examples picked using the random function. 
+Two more visualizations of the most uncertained examples are shown below. The left GIF are uncertain examples picked using the variance ratio function, and the right GIF are uncertain examples picked using the random function. 
 
 <img src="plots/train_AMN_var_ratio_perc_5.gif" width="300"> <img src="plots/train_AMN_random_perc_5.gif" width="300">
 
@@ -31,4 +31,18 @@ As shown in the results, the netowrk trained on samples picked by entropy functi
 
 The acquisition function BALD clearly performed better than the random function that chooses samples randomly. The BALD acquisition doesn't suffer from the same problem as the entropy function. When the entropy of the output is high, the BALD function will output a small uncertainty rating as long as the outputs using various dropout masks are stable. 
 
+Similar experiments for pong
+=====
+Results
+---- 
+![](plots/pong_MC_10_reward.png) ![](plots/pong_MC_10_loss.png)
 
+![](plots/pong_MC_40_reward.png) ![](plots/pong_MC_40_loss.png)
+
+Two visualizations of the most uncertained examples are shown below. The left GIF are uncertain examples picked using the entropy function, and the right GIF are uncertain examples picked using the BALD function.
+
+<img src="plots/train_AMN_entropy_perc_60.gif" width="300"> <img src="plots/train_AMN_BALD_perc_60.gif" width="300">
+
+Two more visualizations of the most uncertained examples are shown below. The left GIF are uncertain examples picked using the variance ratio function, and the right GIF are uncertain examples picked using the random function. 
+
+<img src="plots/train_AMN_var_ratio_perc_60.gif" width="300"> <img src="plots/train_AMN_random_perc_60.gif" width="300">
