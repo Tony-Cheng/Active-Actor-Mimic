@@ -89,12 +89,18 @@ class ENS_DQN(nn.Module):
     def parameters(self):
         params = []
         for net in self.ensembles:
-            params.append(net.parameters())
+            params += net.parameters()
         return params
 
-    def forward(self, x, last_layer=False):
-        net = self.ensembles[int(random.random() * self.num_networks)]
-        return net(x, last_layer=last_layer)
+    def forward(self, x, ens_num=None, last_layer=False):
+        if ens_num is None:
+            prediction = 0
+            for net in self.ensembles:
+                prediction += net(x)
+            return prediction / len(self.ensembles)
+        else:
+            net = self.ensembles[ens_num]
+            return net(x, last_layer=last_layer)
 
 def to_policy(q_values, tau=0.1):
     return F.softmax(q_values / tau, dim=1)
