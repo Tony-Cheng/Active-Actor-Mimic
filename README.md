@@ -23,7 +23,9 @@ Two more visualizations of the most uncertained examples are shown below. The le
 
 <img src="plots/train_AMN_var_ratio_perc_5.gif" width="300"> <img src="plots/train_AMN_random_perc_5.gif" width="300">
 
+The graph below shows the experiment where the percentage of data sampled from the replay buffer is being compared. The BALD acquisition function is used.
 
+![](plots/Breakout_MC_BALD_reward.png)
 
 Analysis
 ----
