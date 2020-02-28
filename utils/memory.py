@@ -29,11 +29,11 @@ class ReplayMemory(object):
         if bs is None:
             bs = len(self)
         i = torch.randint(0, high=self.size, size=(bs,))
-        bs = self.m_states[i, :4].to(self.device)
-        bns = self.m_states[i, 1:].to(self.device)
-        ba = self.m_actions[i].to(self.device)
-        br = self.m_rewards[i].to(self.device).float()
-        bd = self.m_dones[i].to(self.device).float()
+        bs = self.m_states[i, :4]
+        bns = self.m_states[i, 1:]
+        ba = self.m_actions[i]
+        br = self.m_rewards[i].float()
+        bd = self.m_dones[i].float()
         return bs, ba, br, bns, bd
 
     def __len__(self):
