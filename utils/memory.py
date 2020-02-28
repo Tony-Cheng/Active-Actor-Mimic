@@ -26,6 +26,8 @@ class ReplayMemory(object):
         self.size = max(self.size, self.position)
 
     def sample(self, bs):
+        if bs is None:
+            bs = len(self)
         i = torch.randint(0, high=self.size, size=(bs,))
         bs = self.m_states[i, :4].to(self.device)
         bns = self.m_states[i, 1:].to(self.device)
@@ -99,7 +101,7 @@ class RankedReplayMemory(object):
 
 
 class _RankedReplayMemory(object):
-    def __init__(self, capacity, state_shape, n_actions, rank_func, AMN_net, replacement=False, device='cuda'):
+    def __init__(self, capacity, state_shape, n_actions, rank_func, AMN_net, device='cuda'):
         c, h, w = state_shape
         self.capacity = capacity
         self.device = device
@@ -111,7 +113,6 @@ class _RankedReplayMemory(object):
         self.size = 0
         self.rank_func = rank_func
         self.AMN_net = AMN_net
-        self.replacement = replacement
 
     def push(self, state, action, reward, done):
         """Saves a transition."""
@@ -132,25 +133,6 @@ class _RankedReplayMemory(object):
         ba = self.m_actions[i]
         br = self.m_rewards[i].float()
         bd = self.m_dones[i].float()
-        if self.replacement:
-            read_index = 0
-            write_index = 0
-            i_set = set(i.flatten())
-            while read_index < self.size:
-                if read_index in i_set:
-                    read_index += 1
-                else:
-                    self.m_states[write_index] = self.m_states[read_index]
-                    self.m_actions[write_index,
-                                   0] = self.m_actions[read_index, 0]
-                    self.m_rewards[write_index,
-                                   0] = self.m_rewards[read_index, 0]
-                    self.m_dones[write_index, 0] = self.m_dones[read_index, 0]
-                    read_index += 1
-                    write_index += 1
-            self.size -= len(i_set)
-            self.position -= len(i_set)
-            self.position = self.position % self.size
         return bs, ba, br, bd
 
     def __len__(self):
@@ -158,23 +140,26 @@ class _RankedReplayMemory(object):
 
 
 class LabeledReplayMemory():
-    def __init__(self, capacity, state_shape, n_actions, rank_func, AMN_net, replacement=False, device='cuda'):
-        self.capacity = capacity
+    def __init__(self, capacity_not_labelled, capacity_labelled, state_shape,
+                 n_actions, rank_func, AMN_net, device='cuda'):
         self.device = device
         self.labeled_buffer = ReplayMemory(
-            capacity, state_shape, n_actions, device)
+            capacity_labelled, state_shape, n_actions, device)
         self.rank_buffer = _RankedReplayMemory(
-            capacity, state_shape, n_actions, rank_func, AMN_net, replacement=replacement, device=device)
+            capacity_not_labelled, state_shape, n_actions, rank_func, AMN_net, device=device)
 
     def push(self, state, action, reward, done):
         """Saves a transition."""
         self.rank_buffer.push(state, action, reward, done)
 
-    def sample(self, percentage=0.1):
+    def label_sample(self, percentage=0.1):
         bs, ba, br, bd = self.rank_buffer.sample(percentage=percentage)
         for i in range(bs.shape[0]):
-            self.labeled_buffer.push(bs[i], ba[i,0], br[i,0], bd[i,0])
-        bs, ba, br, bns, bd = self.labeled_buffer.sample(bs.shape[0])
+            self.labeled_buffer.push(bs[i], ba[i, 0], br[i, 0], bd[i, 0])
+        return bs.shape[0]
+
+    def sample(self, batch_szie=None):
+        bs, ba, br, bns, bd = self.labeled_buffer.sample(bs=batch_szie)
         return bs, ba, br, bns, bd
 
     def __len__(self):

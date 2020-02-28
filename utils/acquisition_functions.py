@@ -76,7 +76,7 @@ def to_policy(q_values, tau=0.1):
     return F.softmax(q_values / tau, dim=1)
 
 
-def mc_entropy_ens(policy_net, states, tau=0.1, batch_size=128, num_iters=5, device='cuda'):
+def mc_entropy_ens(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
     entropy = torch.zeros((states.shape[0]), dtype=torch.float)
     for i in range(0, states.shape[0], batch_size):
         if i + batch_size < states.shape[0]:
@@ -87,19 +87,19 @@ def mc_entropy_ens(policy_net, states, tau=0.1, batch_size=128, num_iters=5, dev
         with torch.no_grad():
             q_values = policy_net(next_states, ens_num=0)
             policy = to_policy(q_values, tau=tau)
-        for j in range(1, num_iters):
+        for j in range(1, policy_net.get_num_ensembles()):
             with torch.no_grad():
                 q_values = policy_net(next_states, ens_num=j)
                 policy += to_policy(q_values, tau=tau)
-        policy /= num_iters
+        policy /= policy_net.get_num_ensembles()
         current_entropy = - torch.sum(policy * torch.log(policy + 1e-8), 1)
         entropy[i: i + batch_len] = current_entropy.to('cpu')
     return entropy
 
 
-def mc_BALD_ens(policy_net, states, tau=0.1, batch_size=128, num_iters=5, device='cuda'):
+def mc_BALD_ens(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
     entropy = mc_entropy_ens(policy_net, states, tau=tau,
-                             batch_size=batch_size, num_iters=num_iters, device=device)
+                             batch_size=batch_size, device=device)
     cond_entropy = torch.zeros((states.shape[0]), dtype=torch.float)
     for i in range(0, states.shape[0], batch_size):
         if i + batch_size < states.shape[0]:
@@ -111,12 +111,15 @@ def mc_BALD_ens(policy_net, states, tau=0.1, batch_size=128, num_iters=5, device
             q_values = policy_net(next_states, ens_num=0)
             policy = to_policy(q_values, tau=tau)
             current_cond_entropy = torch.sum(policy * torch.log(policy), 1)
-        for j in range(1, num_iters):
+        for j in range(1, policy_net.get_num_ensembles()):
             with torch.no_grad():
                 q_values = policy_net(next_states, ens_num=j)
                 policy = to_policy(q_values, tau=tau)
                 current_cond_entropy += torch.sum(policy *
                                                   torch.log(policy + 1e-8), 1)
-        current_cond_entropy /= num_iters
+        current_cond_entropy /= policy_net.get_num_ensembles()
         cond_entropy[i: i + batch_len] = current_cond_entropy.to('cpu')
     return entropy + cond_entropy
+
+def mc_ramdom_ens(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
+    return torch.randn((states.shape[0]), dtype=torch.float)
