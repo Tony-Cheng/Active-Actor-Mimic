@@ -102,5 +102,8 @@ class ENS_DQN(nn.Module):
             net = self.ensembles[ens_num]
             return net(x, last_layer=last_layer)
 
+    def get_num_ensembles(self):
+        return len(self.ensembles)
+
 def to_policy(q_values, tau=0.1):
     return F.softmax(q_values / tau, dim=1)

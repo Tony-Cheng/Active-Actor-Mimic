@@ -56,8 +56,6 @@ def AMN_optimization(AMN_net, expert_net, optimizer, memory, feature_regression=
 
     optimizer.zero_grad()
     loss.backward()
-    for param in AMN_net.parameters():
-        param.grad.data.clamp(-1, 1)
     optimizer.step()
 
     return loss.detach()
@@ -155,7 +153,7 @@ def AMN_perc_optimization_ENS(AMN_net, expert_net, optimizer, memory, feature_re
     bs_len = bs.shape[0]
     loss = 0
     for i in range(0, bs_len, batch_size):
-        for ens_num in range(5):
+        for ens_num in range(AMN_net.get_num_ensembles()):
             if i + batch_size < bs_len:
                 actual_batch_size = batch_size
             else:
@@ -163,6 +161,41 @@ def AMN_perc_optimization_ENS(AMN_net, expert_net, optimizer, memory, feature_re
             next_bs = bs[i: i + actual_batch_size].to(device)
             loss += _AMN_optimization_ENS(AMN_net, expert_net, optimizer, next_bs, ens_num=ens_num, feature_regression=feature_regression,
                                           tau=tau, beta=beta, GAMMA=GAMMA, training=training)
+    return loss
+
+
+def AMN_optimization_ensemble_epochs(AMN_net, expert_net, optimizer, memory, epochs,
+                                     batch_size=128, GAMMA=0.99, device='cuda'):
+    loss = 0
+    for _ in range(epochs):
+        bs, _, _, _, _ = memory.sample()
+        bs_len = bs.shape[0]
+        for i in range(0, bs_len, batch_size):
+            for ens_num in range(AMN_net.get_num_ensembles()):
+                if i + batch_size < bs_len:
+                    actual_batch_size = batch_size
+                else:
+                    actual_batch_size = bs_len - i
+                next_bs = bs[i: i + actual_batch_size].to(device)
+                loss += _AMN_optimization_ENS(AMN_net, expert_net,
+                                              optimizer, next_bs, ens_num=ens_num,  GAMMA=GAMMA)
+    return loss
+
+
+def AMN_optimization_epochs(AMN_net, expert_net, optimizer, memory, epochs,
+                            batch_size=128, GAMMA=0.99, device='cuda'):
+    loss = 0
+    for _ in range(epochs):
+        bs, _, _, _, _ = memory.sample()
+        bs_len = bs.shape[0]
+        for i in range(0, bs_len, batch_size):
+            if i + batch_size < bs_len:
+                actual_batch_size = batch_size
+            else:
+                actual_batch_size = bs_len - i
+            next_bs = bs[i: i + actual_batch_size].to(device)
+            loss += _AMN_optimization_ENS(AMN_net,
+                                          expert_net, optimizer, next_bs, GAMMA=GAMMA)
     return loss
 
 
