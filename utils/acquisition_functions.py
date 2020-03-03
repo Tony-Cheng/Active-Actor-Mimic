@@ -121,5 +121,5 @@ def mc_BALD_ens(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
         cond_entropy[i: i + batch_len] = current_cond_entropy.to('cpu')
     return entropy + cond_entropy
 
-def mc_ramdom_ens(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
+def ens_random(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
     return torch.randn((states.shape[0]), dtype=torch.float)

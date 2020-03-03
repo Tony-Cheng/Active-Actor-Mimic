@@ -26,7 +26,7 @@ class ReplayMemory(object):
         self.size = max(self.size, self.position)
 
     def sample(self, bs):
-        if bs is None:
+        if bs is None or len(self) < bs:
             bs = len(self)
         i = torch.randint(0, high=self.size, size=(bs,))
         bs = self.m_states[i, :4]
@@ -163,4 +163,4 @@ class LabeledReplayMemory():
         return bs, ba, br, bns, bd
 
     def __len__(self):
-        return len(self.rank_buffer)
+        return len(self.labeled_buffer)
