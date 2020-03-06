@@ -96,7 +96,7 @@ class ENS_DQN(nn.Module):
         if ens_num is None:
             prediction = 0
             for net in self.ensembles:
-                prediction += net(x)
+                prediction += to_policy(net(x))
             return prediction / len(self.ensembles)
         else:
             net = self.ensembles[ens_num]

@@ -4,11 +4,21 @@ import torch.nn.functional as F
 
 
 def standard_optimization(policy_net, target_net, optimizer, memory, batch_size=128,
-                          GAMMA=0.99, training=True):
+                          GAMMA=0.99, training=True, device='cuda'):
     if not training:
         return None
+
+    if len(memory) < batch_size:
+        return 0
+
     state_batch, action_batch, reward_batch, n_state_batch, done_batch = memory.sample(
         batch_size)
+    
+    state_batch = state_batch.to(device)
+    action_batch = action_batch.to(device)
+    reward_batch = reward_batch.to(device)
+    n_state_batch = n_state_batch.to(device)
+    done_batch = done_batch.to(device)
 
     q = policy_net(state_batch).gather(1, action_batch)
     nq = target_net(n_state_batch).max(1)[0].detach()
@@ -37,6 +47,7 @@ def AMN_optimization(AMN_net, expert_net, optimizer, memory, feature_regression=
     """
     if not training:
         return None
+
     state_batch, _, _, _, _ = memory.sample(batch_size)
 
     if feature_regression == True:
