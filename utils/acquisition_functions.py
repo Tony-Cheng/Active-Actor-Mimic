@@ -97,7 +97,7 @@ def mc_entropy_ens(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
     return entropy
 
 
-def mc_BALD_ens(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
+def ens_BALD(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
     entropy = mc_entropy_ens(policy_net, states, tau=tau,
                              batch_size=batch_size, device=device)
     cond_entropy = torch.zeros((states.shape[0]), dtype=torch.float)
