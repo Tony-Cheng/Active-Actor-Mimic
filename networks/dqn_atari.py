@@ -92,11 +92,16 @@ class ENS_DQN(nn.Module):
             params += net.parameters()
         return params
 
-    def forward(self, x, ens_num=None, last_layer=False):
+    def forward(self, x, ens_num=None, last_layer=False, q_value=False):
         if ens_num is None:
             prediction = 0
             for net in self.ensembles:
                 prediction += to_policy(net(x))
+            return prediction / len(self.ensembles)
+        elif q_value:
+            prediction = 0
+            for net in self.ensembles:
+                prediction += (net(x))
             return prediction / len(self.ensembles)
         else:
             net = self.ensembles[ens_num]
