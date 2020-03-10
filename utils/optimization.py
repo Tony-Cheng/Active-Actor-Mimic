@@ -73,7 +73,7 @@ def AMN_optimization(AMN_net, expert_net, optimizer, memory, feature_regression=
 
 
 def _AMN_optimization(AMN_net, expert_net, optimizer, state_batch, feature_regression=False, tau=0.1,
-                      beta=0.01, GAMMA=0.99, training=True):
+                      beta=0.01, GAMMA=0.99, training=True, clipping=False):
     """
     Apply the standard procedure to deep Q network.
     """
@@ -97,8 +97,9 @@ def _AMN_optimization(AMN_net, expert_net, optimizer, state_batch, feature_regre
 
     optimizer.zero_grad()
     loss.backward()
-    for param in AMN_net.parameters():
-        param.grad.data.clamp(-1, 1)
+    if clipping:
+        for param in AMN_net.parameters():
+            param.grad.data.clamp(-1, 1)
     optimizer.step()
 
     return loss.detach()
@@ -205,7 +206,7 @@ def AMN_optimization_epochs(AMN_net, expert_net, optimizer, memory, epochs,
             else:
                 actual_batch_size = bs_len - i
             next_bs = bs[i: i + actual_batch_size].to(device)
-            loss += _AMN_optimization_ENS(AMN_net,
+            loss += _AMN_optimization(AMN_net,
                                           expert_net, optimizer, next_bs, GAMMA=GAMMA)
     return loss
 
