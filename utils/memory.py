@@ -159,8 +159,8 @@ class LabeledReplayMemory():
             self.labeled_buffer.push(bs[i], ba[i, 0], br[i, 0], bd[i, 0])
         return bs.shape[0]
 
-    def sample(self, batch_szie=None):
-        bs, ba, br, bns, bd = self.labeled_buffer.sample(bs=batch_szie)
+    def sample(self, batch_size=None):
+        bs, ba, br, bns, bd = self.labeled_buffer.sample(bs=batch_size)
         return bs, ba, br, bns, bd
 
     def __len__(self):
@@ -233,8 +233,8 @@ class GeneralLabeledReplayMemory():
             self.labeled_buffer.push(bs[i], ba[i, 0], br[i, 0], bd[i, 0])
         return bs.shape[0]
 
-    def sample(self, batch_szie=None):
-        bs, ba, br, bns, bd = self.labeled_buffer.sample(bs=batch_szie)
+    def sample(self, batch_size=None):
+        bs, ba, br, bns, bd = self.labeled_buffer.sample(bs=batch_size)
         return bs, ba, br, bns, bd
 
     def __len__(self):
@@ -247,11 +247,11 @@ class DuoMemory():
         self.memory2 = memory2
         self.percentage = percentage
 
-    def sample(self, batch_szie=None):
+    def sample(self, batch_size=None):
         bs1, ba1, br1, bns1, bd1 = self.memory1.sample(
-            batch_szie=round(batch_szie * self.percentage))
+            batch_size=round(batch_size * self.percentage))
         bs2, ba2, br2, bns2, bd2 = self.memory2.sample(
-            batch_szie=round(batch_szie * (1 - self.percentage)))
+            batch_size=round(batch_size * (1 - self.percentage)))
         bs = torch.cat((bs1, bs2))
         ba = torch.cat((ba1, ba2))
         br = torch.cat((br1, br2))

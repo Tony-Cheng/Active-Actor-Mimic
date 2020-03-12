@@ -144,7 +144,7 @@ def ens_TD_no_target(policy_net, memory, batch_size=128, GAMMA=0.99, device='cud
             # Compute Huber loss
             loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))
             td_loss[i: i + batch_len] = loss.to('cpu')
-    return - td_loss
+    return td_loss
 
 
 def ens_random(policy_net, states, tau=0.1, batch_size=128, device='cuda'):

@@ -13,7 +13,7 @@ def standard_optimization(policy_net, target_net, optimizer, memory, batch_size=
 
     state_batch, action_batch, reward_batch, n_state_batch, done_batch = memory.sample(
         batch_size)
-    
+
     state_batch = state_batch.to(device)
     action_batch = action_batch.to(device)
     reward_batch = reward_batch.to(device)
@@ -194,6 +194,17 @@ def AMN_optimization_ensemble_epochs(AMN_net, expert_net, optimizer, memory, epo
     return loss
 
 
+def AMN_optimization_ensemble(AMN_net, expert_net, optimizer, memory,
+                              batch_size=128, GAMMA=0.99, device='cuda'):
+    loss = 0
+    bs, _, _, _, _ = memory.sample(batch_size=batch_size)
+    bs = bs.to(device)
+    for ens_num in range(AMN_net.get_num_ensembles()):
+        loss += _AMN_optimization_ENS(AMN_net, expert_net,
+                                      optimizer, bs, ens_num=ens_num,  GAMMA=GAMMA)
+    return loss
+
+
 def AMN_optimization_epochs(AMN_net, expert_net, optimizer, memory, epochs,
                             batch_size=128, GAMMA=0.99, device='cuda'):
     loss = 0
@@ -207,7 +218,7 @@ def AMN_optimization_epochs(AMN_net, expert_net, optimizer, memory, epochs,
                 actual_batch_size = bs_len - i
             next_bs = bs[i: i + actual_batch_size].to(device)
             loss += _AMN_optimization(AMN_net,
-                                          expert_net, optimizer, next_bs, GAMMA=GAMMA)
+                                      expert_net, optimizer, next_bs, GAMMA=GAMMA)
     return loss
 
 
