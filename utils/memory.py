@@ -1,8 +1,4 @@
-from collections import namedtuple
-import random
 import torch
-import cv2
-import math
 
 
 class ReplayMemory(object):
@@ -42,7 +38,8 @@ class ReplayMemory(object):
 
 
 class RankedReplayMemory(object):
-    def __init__(self, capacity, state_shape, n_actions, rank_func, AMN_net, replacement=False, device='cuda'):
+    def __init__(self, capacity, state_shape, n_actions, rank_func, AMN_net,
+                 replacement=False, device='cuda'):
         c, h, w = state_shape
         self.capacity = capacity
         self.device = device
@@ -67,7 +64,8 @@ class RankedReplayMemory(object):
 
     def sample(self, percentage=0.1):
         _, i = torch.sort(self.rank_func(
-            self.AMN_net, self.m_states[: self.size, :4], device=self.device), descending=True)
+            self.AMN_net, self.m_states[: self.size, :4], device=self.device),
+            descending=True)
         i = i[: int(percentage * self.size)]
         i = i[torch.randperm(i.shape[0])]
         # i = torch.randint(0, high=self.size, size=(bs,))
@@ -102,7 +100,8 @@ class RankedReplayMemory(object):
 
 
 class _RankedReplayMemory(object):
-    def __init__(self, capacity, state_shape, n_actions, rank_func, AMN_net, device='cuda'):
+    def __init__(self, capacity, state_shape, n_actions, rank_func, AMN_net,
+                 device='cuda'):
         c, h, w = state_shape
         self.capacity = capacity
         self.device = device
@@ -126,7 +125,8 @@ class _RankedReplayMemory(object):
 
     def sample(self, percentage=0.1):
         _, i = torch.sort(self.rank_func(
-            self.AMN_net, self.m_states[: self.size, :4], device=self.device), descending=True)
+            self.AMN_net, self.m_states[: self.size, :4], device=self.device),
+            descending=True)
         i = i[: int(percentage * self.size)]
         i = i[torch.randperm(i.shape[0])]
         # i = torch.randint(0, high=self.size, size=(bs,))
@@ -147,7 +147,8 @@ class LabeledReplayMemory():
         self.labeled_buffer = ReplayMemory(
             capacity_labelled, state_shape, n_actions, device)
         self.rank_buffer = _RankedReplayMemory(
-            capacity_not_labelled, state_shape, n_actions, rank_func, AMN_net, device=device)
+            capacity_not_labelled, state_shape, n_actions, rank_func, AMN_net,
+            device=device)
 
     def push(self, state, action, reward, done):
         """Saves a transition."""
@@ -168,7 +169,8 @@ class LabeledReplayMemory():
 
 
 class _GeneralRankedReplayMemory(object):
-    def __init__(self, capacity, state_shape, n_actions, rank_func, AMN_net, device='cuda'):
+    def __init__(self, capacity, state_shape, n_actions, rank_func, AMN_net,
+                 device='cuda'):
         c, h, w = state_shape
         self.capacity = capacity
         self.device = device
@@ -221,7 +223,8 @@ class GeneralLabeledReplayMemory():
         self.labeled_buffer = ReplayMemory(
             capacity_labelled, state_shape, n_actions, device)
         self.rank_buffer = _GeneralRankedReplayMemory(
-            capacity_not_labelled, state_shape, n_actions, rank_func, AMN_net, device=device)
+            capacity_not_labelled, state_shape, n_actions, rank_func, AMN_net,
+            device=device)
 
     def push(self, state, action, reward, done):
         """Saves a transition."""
