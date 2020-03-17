@@ -2,7 +2,8 @@ import torch
 import torch.nn.functional as F
 
 
-def mc_entropy(policy_net, states, tau=0.1, batch_size=128, num_iters=10, device='cuda'):
+def mc_entropy(policy_net, states, tau=0.1, batch_size=128, num_iters=10,
+               device='cuda'):
     entropy = torch.zeros((states.shape[0]), dtype=torch.float)
     for i in range(0, states.shape[0], batch_size):
         if i + batch_size < states.shape[0]:
@@ -142,7 +143,8 @@ def ens_TD_no_target(policy_net, memory, batch_size=128, GAMMA=0.99, device='cud
             expected_state_action_values = (
                 nq * GAMMA)*(1.-done_batch[:, 0]) + reward_batch[:, 0]
             # Compute Huber loss
-            loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))
+            loss = F.smooth_l1_loss(
+                q, expected_state_action_values.unsqueeze(1))
             td_loss[i: i + batch_len] = loss.to('cpu')
     return td_loss
 
