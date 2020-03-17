@@ -9,6 +9,7 @@ class BaseConfig:
         self.batch_size = None
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.discount = 0.99
+        self.env_name = None
 
 
 class StandardConfig:

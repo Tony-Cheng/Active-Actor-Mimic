@@ -14,7 +14,8 @@ class BALDSelector:
         bald_values = BALD(self.config, self.samples)
         _, sorted_index = torch.sort(bald_values, descending=True)
         sample_size = samples.size(0)
-        return sorted_index[:int(sample_size * self.config.perc_label)]
+        return samples[sorted_index[:
+                                    int(sample_size * self.config.perc_label)]]
 
 
 def BALD(config: BaseConfig, samples):
