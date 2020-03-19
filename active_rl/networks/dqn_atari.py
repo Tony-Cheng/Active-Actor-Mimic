@@ -107,13 +107,13 @@ class ENS_DQN(nn.Module):
 
     def get_num_ensembles(self):
         return len(self.ensembles)
-    
+
     def state_dict(self):
         dicts = []
         for i in range(len(self.ensembles)):
             dicts.append(self.ensembles[i].state_dict())
         return dicts
-    
+
     def load_state_dict(self, dicts):
         for i in range(len(dicts)):
             self.ensembles[i].load_state_dict(dicts[i])

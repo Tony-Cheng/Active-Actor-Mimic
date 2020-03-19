@@ -10,6 +10,7 @@ class BaseConfig:
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.discount = 0.99
         self.env_name = None
+        self.env = None
 
 
 class StandardConfig:
@@ -19,7 +20,22 @@ class StandardConfig:
         self.max_steps = 0
 
 
-class AMNConfig(BaseConfig):
+class DiscreteActionConfig(BaseConfig):
+
+    def __init__(self):
+        self.eps_start = None
+        self.eps_end = None
+        self.policy_net = None
+        self.eps_decay = None
+        self.eps_start = None
+        self.eps_end = None
+        self.eps_decay = None
+        self.input_channel = None
+        self.memory = None
+        self.memory_size = None
+
+
+class AMNConfig(DiscreteActionConfig):
 
     def __init__(self):
         super(AMNConfig, self).__init__()
