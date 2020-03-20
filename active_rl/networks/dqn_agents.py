@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.functional as F
+import torch.nn.functional as F
 from ..utils import DiscreteActionConfig
 
 
@@ -25,29 +25,31 @@ class DDQNAgent(nn.Module):
         self.target_net.to(self.device)
         self.memory = config.memory
         self.gamma = config.gamma
-        self.optimizer = config.optimizer(self.policy_net.state_dict())
+        self.optimizer = config.optimizer(
+            self.policy_net.parameters(), lr=config.lr)
         self.config = config
 
     def forward(self, state):
         return self.policy_net(state)
 
     def train(self):
-        samples = self.memory.samples()
+        samples = self.memory.sample()
         states, actions, rewards, next_states, dones = samples
 
-        states = torch.from_numpy(states).to(self.device)
-        actions = torch.from_numpy(actions).to(self.device)
-        rewards = torch.from_numpy(rewards).to(self.device)
-        next_states = torch.from_numpy(next_states).to(self.device)
-        dones = torch.from_numpy(dones).to(self.device)
+        states = states.to(self.device)
+        actions = actions.to(self.device)
+        rewards = rewards.to(self.device)
+        next_states = next_states.to(self.device)
+        dones = dones.to(self.device)
 
-        q_values = self.policy_netpolicy_net(states).gather(1, actions)
-        next_actions = self.policy_net(next_states).max(1)[1].detach()
+        q_values = self.policy_net(states).gather(1, actions)
+        next_actions = self.policy_net(next_states).max(1)[
+            1].detach().view(-1, 1)
         next_q_values = self.target_net(
             next_states).gather(1, next_actions).detach()
 
         expected_state_action_values = (
-            next_q_values * self.gamma) * (1.-dones[:, 0]) + rewards[:, 0]
+            next_q_values * self.gamma) * (1.-dones) + rewards
 
         loss = F.smooth_l1_loss(q_values, expected_state_action_values)
         self.optimizer.zero_grad()

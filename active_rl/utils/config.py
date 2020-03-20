@@ -1,17 +1,14 @@
 import torch
-from ..networks import BaseAgent
-from ..environments import EnvInterface
 
 
 class BaseConfig:
     batch_size: int
     device: str
-    env: EnvInterface
 
     def __init__(self):
         self.batch_size = None
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.discount = 0.99
+        self.gamma = 0.99
         self.env_name = None
         self.env = None
         self.eval_env = None
@@ -23,6 +20,7 @@ class BaseConfig:
         self.writer_name = None
         self.action_selector = None
         self.save_filename = None
+        self.lr = None
 
 
 class StandardConfig:
@@ -33,24 +31,24 @@ class StandardConfig:
 
 
 class DiscreteActionConfig(BaseConfig):
-    agent: BaseAgent
 
     def __init__(self):
         super(DiscreteActionConfig, self).__init__()
         self.eps_start = None
         self.eps_end = None
         self.eps_decay = None
-        self.input_channel = None
         self.memory = None
         self.memory_size = None
         self.body = None
         self.optimizer = None
-        self.save_freq = None
         self.agent = None
         self.train_freq = None
         self.target_update_freq = None
         self.height = None
         self.width = None
+        self.input_channel = None
+        self.memory_channel = None
+        self.frame_channel = None
         self.n_actions = None
 
 

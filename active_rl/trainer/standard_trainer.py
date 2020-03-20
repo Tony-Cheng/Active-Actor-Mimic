@@ -22,9 +22,9 @@ def train_atari(config: DiscreteActionConfig):
     for step in progressive:
         state = env.get_state()
         action = action_selector.select_action(state)
-        next_state, reward, done, info = env.step(action)
-
-        memory.push((state, action, reward, next_state, done))
+        _, reward, done, info = env.step(action)
+        all_states = env.get_all_states()
+        memory.push(all_states, action, reward, done)
 
         if step > initial_steps:
             if step % train_freq == 0:

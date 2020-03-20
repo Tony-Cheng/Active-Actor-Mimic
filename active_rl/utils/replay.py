@@ -1,11 +1,5 @@
-#######################################################################
-# Copyright (C) 2017 Shangtong Zhang(zhangshangtong.cpp@gmail.com)    #
-# Permission given to modify the code as long as you keep this        #
-# declaration at the top                                              #
-#######################################################################
-
-import numpy as np
-from config import DiscreteActionConfig
+from .config import DiscreteActionConfig
+import torch
 
 
 class Replay:
@@ -13,34 +7,32 @@ class Replay:
 
         self.memory_size = config.memory_size
         self.batch_size = config.batch_size
-        self.data = []
-        self.pos = 0
+        height = config.height
+        width = config.width
+        self.num_channels = config.memory_channel
+        self.frame_channel = config.frame_channel
+        self.m_states = torch.zeros(
+            (self.memory_size, self.num_channels, height, width),
+            dtype=torch.uint8)
+        self.m_actions = torch.zeros((self.memory_size, 1), dtype=torch.long)
+        self.m_rewards = torch.zeros((self.memory_size, 1), dtype=torch.int8)
+        self.m_dones = torch.zeros((self.memory_size, 1), dtype=torch.bool)
+        self.position = 0
+        self.size = 0
 
-    def push(self, experience):
-        if self.pos >= len(self.data):
-            self.data.append(experience)
-        else:
-            self.data[self.pos] = experience
-        self.pos = (self.pos + 1) % self.memory_size
+    def push(self, state, action, reward, done):
+        self.m_states[self.position] = state  # 5,84,84
+        self.m_actions[self.position, 0] = action
+        self.m_rewards[self.position, 0] = reward
+        self.m_dones[self.position, 0] = done
+        self.position = (self.position + 1) % self.memory_size
+        self.size = max(self.size, self.position)
 
-    def sample(self, batch_size=None):
-        if self.empty():
-            return None
-        if batch_size is None:
-            batch_size = self.batch_size
-
-        sampled_indices = [np.random.randint(
-            0, len(self.data)) for _ in range(batch_size)]
-        sampled_data = [self.data[ind] for ind in sampled_indices]
-        sampled_data = zip(*sampled_data)
-        sampled_data = list(map(lambda x: np.asarray(x), sampled_data))
-        return sampled_data
-
-    def size(self):
-        return len(self.data)
-
-    def empty(self):
-        return not len(self.data)
-
-    def shuffle(self):
-        np.random.shuffle(self.data)
+    def sample(self):
+        idx = torch.randint(0, high=self.size, size=(self.batch_size,))
+        states = self.m_states[idx, :self.num_channels - self.frame_channel]
+        next_states = self.m_states[idx, self.frame_channel:]
+        actions = self.m_actions[idx]
+        rewards = self.m_rewards[idx].float()
+        dones = self.m_dones[idx].float()
+        return states, actions, rewards, next_states, dones
