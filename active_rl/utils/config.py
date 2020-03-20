@@ -1,9 +1,12 @@
 import torch
+from ..networks import BaseAgent
+from ..environments import EnvInterface
 
 
 class BaseConfig:
     batch_size: int
     device: str
+    env: EnvInterface
 
     def __init__(self):
         self.batch_size = None
@@ -11,6 +14,15 @@ class BaseConfig:
         self.discount = 0.99
         self.env_name = None
         self.env = None
+        self.intial_steps = None
+        self.max_steps = None
+        self.save_freq = None
+        self.eval_freq = None
+        self.writer = None
+        self.writer_name = None
+        self.action_selector = None
+        self.save_filename = None
+        self.eval_env = None
 
 
 class StandardConfig:
@@ -21,10 +33,10 @@ class StandardConfig:
 
 
 class DiscreteActionConfig(BaseConfig):
+    agent: BaseAgent
 
     def __init__(self):
-        self.eps_start = None
-        self.eps_end = None
+        super(DiscreteActionConfig, self).__init__()
         self.policy_net = None
         self.eps_decay = None
         self.eps_start = None
@@ -33,6 +45,12 @@ class DiscreteActionConfig(BaseConfig):
         self.input_channel = None
         self.memory = None
         self.memory_size = None
+        self.body = None
+        self.optimizer = None
+        self.save_freq = None
+        self.agent = None
+        self.train_freq = None
+        self.target_update_freq = None
 
 
 class AMNConfig(DiscreteActionConfig):

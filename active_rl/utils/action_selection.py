@@ -27,4 +27,4 @@ class DiscreteActionSelector:
             a = torch.tensor([[random.randrange(self._n_actions)]],
                              device='cpu', dtype=torch.long)
 
-        return a.numpy()[0, 0].item(), self._eps
+        return a.numpy()[0, 0].item()

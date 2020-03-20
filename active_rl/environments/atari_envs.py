@@ -1,4 +1,4 @@
-from ..utils import AMNConfig
+from ..utils import BaseConfig
 from .atari_wrappers import make_atari, wrap_deepmind
 from .atari_utils import fp
 from collections import deque
@@ -17,7 +17,7 @@ class EnvInterface:
 
 
 class DiscreteAtariEnv(EnvInterface):
-    def __init__(self, config: AMNConfig):
+    def __init__(self, config: BaseConfig):
         self.env_raw = make_atari('{}NoFrameskip-v4'.format(config.env_name))
         self.env = wrap_deepmind(self.env_raw, frame_stack=False,
                                  episode_life=False, clip_rewards=True)
@@ -43,3 +43,11 @@ class DiscreteAtariEnv(EnvInterface):
             frame, _, _, _ = self.env.step(0)
             frame = fp(frame)
             self.frame_queue.append(frame)
+        return self.get_state()
+
+
+class EvalAtariEnv(DiscreteAtariEnv):
+    def __init__(self, config: BaseConfig):
+        super(DiscreteAtariEnv, self).__init__()
+        self.env_raw = make_atari('{}NoFrameskip-v4'.format(config.env_name))
+        self.env = wrap_deepmind()
