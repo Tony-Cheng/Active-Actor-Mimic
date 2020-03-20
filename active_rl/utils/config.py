@@ -14,6 +14,7 @@ class BaseConfig:
         self.discount = 0.99
         self.env_name = None
         self.env = None
+        self.eval_env = None
         self.intial_steps = None
         self.max_steps = None
         self.save_freq = None
@@ -22,7 +23,6 @@ class BaseConfig:
         self.writer_name = None
         self.action_selector = None
         self.save_filename = None
-        self.eval_env = None
 
 
 class StandardConfig:
@@ -37,8 +37,6 @@ class DiscreteActionConfig(BaseConfig):
 
     def __init__(self):
         super(DiscreteActionConfig, self).__init__()
-        self.policy_net = None
-        self.eps_decay = None
         self.eps_start = None
         self.eps_end = None
         self.eps_decay = None
@@ -51,6 +49,9 @@ class DiscreteActionConfig(BaseConfig):
         self.agent = None
         self.train_freq = None
         self.target_update_freq = None
+        self.height = None
+        self.width = None
+        self.n_actions = None
 
 
 class AMNConfig(DiscreteActionConfig):

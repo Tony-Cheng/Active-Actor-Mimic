@@ -17,16 +17,22 @@ class EnvInterface:
 
 
 class DiscreteAtariEnv(EnvInterface):
-    def __init__(self, config: BaseConfig):
+    def __init__(self, config: BaseConfig, eval=False):
         self.env_raw = make_atari('{}NoFrameskip-v4'.format(config.env_name))
-        self.env = wrap_deepmind(self.env_raw, frame_stack=False,
-                                 episode_life=False, clip_rewards=True)
+        if eval:
+            self.env = wrap_deepmind()
+        else:
+            self.env = wrap_deepmind(self.env_raw, frame_stack=False,
+                                     episode_life=False, clip_rewards=True)
         n_channels, height, width = fp(self.env.reset())
         self.n_channels = n_channels
         self.height = height
         self.width = width
         self.n_actions = self.env.action_space.n_actions
         self.frame_queue = deque(maxlen=5)
+
+    def get_n_actions(self):
+        return self.n_actions
 
     def get_state(self):
         return torch.cat(list(self.frame_queue))[1:].unsqueeze(0)
@@ -44,10 +50,3 @@ class DiscreteAtariEnv(EnvInterface):
             frame = fp(frame)
             self.frame_queue.append(frame)
         return self.get_state()
-
-
-class EvalAtariEnv(DiscreteAtariEnv):
-    def __init__(self, config: BaseConfig):
-        super(DiscreteAtariEnv, self).__init__()
-        self.env_raw = make_atari('{}NoFrameskip-v4'.format(config.env_name))
-        self.env = wrap_deepmind()

@@ -13,6 +13,7 @@ def train_atari(config: DiscreteActionConfig):
     train_freq = config.train_freq
     eval_freq = config.eval_freq
     save_freq = config.save_freq
+    target_update_freq = config.target_update_freq
     save_filename = config.save_filename
     progressive = tqdm(range(max_steps), total=max_steps,
                        ncols=400, leave=False, unit='b')
@@ -35,6 +36,9 @@ def train_atari(config: DiscreteActionConfig):
                 rewards = evaluate(config)
                 if writer is not None:
                     writer.add_scalar('reward_step', rewards, step)
+
+            if step % target_update_freq == 0:
+                agent.update_target()
 
             if step % save_freq == 0:
                 agent.save(save_filename)

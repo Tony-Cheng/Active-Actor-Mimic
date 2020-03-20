@@ -14,10 +14,11 @@ class BaseAgent(nn.Module):
 
 class DDQNAgent(nn.Module):
 
-    def __init__(self, config: DiscreteActionConfig, body):
+    def __init__(self, config: DiscreteActionConfig):
         super(DDQNAgent, self).__init__()
-        self.policy_net = body(config)
-        self.target_net = body(config)
+        self.body = config.body
+        self.policy_net = self.body(config)
+        self.target_net = self.body(config)
         self.update_target()
         self.device = config.device
         self.policy_net.to(self.device)
