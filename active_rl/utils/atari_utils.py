@@ -1,6 +1,6 @@
 import torch
 import random
-from environments.atari_wrappers import wrap_deepmind
+from ..environments import wrap_deepmind, make_atari
 from collections import deque
 
 
@@ -39,8 +39,8 @@ def fp(n_frame):
     return n_frame.view(1, h, h)
 
 
-def evaluate(step, policy_net, env, action_selector, num_episode=5):
-    env = wrap_deepmind(env)
+def evaluate(policy_net, env_raw, action_selector, num_episode=5):
+    env = wrap_deepmind(env_raw)
     sa = action_selector
     e_rewards = []
     q = deque(maxlen=5)
@@ -63,3 +63,15 @@ def evaluate(step, policy_net, env, action_selector, num_episode=5):
         e_rewards.append(e_reward)
 
     return float(sum(e_rewards))/float(num_episode)
+
+
+def make_raw_env(env_name):
+    return make_atari('{}NoFrameskip-v4'.format(env_name))
+
+
+def env_shape(env_raw):
+    env = wrap_deepmind(env_raw, frame_stack=False, episode_life=False,
+                        clip_rewards=True)
+    c, h, w = fp(env.reset()).shape
+    n_actions = env.action_space.n
+    return c, h, w, n_actions
