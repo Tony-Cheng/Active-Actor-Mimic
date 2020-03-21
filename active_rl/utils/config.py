@@ -21,6 +21,8 @@ class BaseConfig:
         self.action_selector = None
         self.save_filename = None
         self.lr = None
+        self.num_ensembles = None
+        self.action_selection_policy = None
 
 
 class StandardConfig:
@@ -58,8 +60,8 @@ class AMNConfig(DiscreteActionConfig):
         super(AMNConfig, self).__init__()
         self.max_steps = 0
         self.max_labels = 0
-        self.policy_net = None
-        self.target_net = None
+        self.agent = None
+        self.expert_net_name = None
         self.eval_freq = None  # labels / eval step
         self.training_per_label = None
         self.perc_label = None
