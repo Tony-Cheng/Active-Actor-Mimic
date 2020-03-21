@@ -1,8 +1,6 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-import random
-import torch.optim as optim 
 
 
 class DQN(nn.Module):
@@ -109,13 +107,13 @@ class ENS_DQN(nn.Module):
 
     def get_num_ensembles(self):
         return len(self.ensembles)
-    
+
     def state_dict(self):
         dicts = []
         for i in range(len(self.ensembles)):
             dicts.append(self.ensembles[i].state_dict())
         return dicts
-    
+
     def load_state_dict(self, dicts):
         for i in range(len(dicts)):
             self.ensembles[i].load_state_dict(dicts[i])
@@ -123,6 +121,7 @@ class ENS_DQN(nn.Module):
     def eval(self):
         for i in range(len(self.ensembles)):
             self.ensembles[i].eval()
+
 
 def to_policy(q_values, tau=0.1):
     return F.softmax(q_values / tau, dim=1)
