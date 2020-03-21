@@ -73,7 +73,42 @@ class DDQNAgent(nn.Module):
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def save(self, filename):
-        torch.save(self.policy_net, filename)
+        torch.save(self.policy_net, f'models/{filename}')
+
+
+class DQNAgent(DDQNAgent):
+    def __init__(self, config: DiscreteActionConfig):
+        super(DQNAgent, self).__init__(config)
+
+    def train(self):
+        samples = self.memory.sample()
+        states, actions, rewards, next_states, dones = samples
+
+        states = states.to(self.device)
+        actions = actions.to(self.device)
+        rewards = rewards.to(self.device)
+        next_states = next_states.to(self.device)
+        dones = dones.to(self.device)
+
+        q_values = self.policy_net(states).gather(1, actions)
+        next_q_values = self.target_net(next_states).max(1)[0].detach()
+
+        # Compute the expected Q values
+        expected_state_action_values = (
+            next_q_values * self.gamma)*(1.-dones[:, 0]) + rewards[:, 0]
+
+        # Compute Huber loss
+        loss = F.smooth_l1_loss(
+            q_values, expected_state_action_values.unsqueeze(1))
+
+        # Optimize the model
+        self.optimizer.zero_grad()
+        loss.backward()
+        for param in self.policy_net.parameters():
+            param.grad.data.clamp_(-1, 1)
+        self.optimizer.step()
+
+        return loss.detach()
 
 
 class DDQNEnsembleAgent(nn.Module):
@@ -148,7 +183,7 @@ class DDQNEnsembleAgent(nn.Module):
             self.target_net[i].load_state_dict(self.policy_net[i].state_dict())
 
     def save(self, filename):
-        torch.save(self.policy_net, filename)
+        torch.save(self.policy_net, f'models/{filename}')
 
 
 class DDQNAMNAgent(nn.Module):
@@ -221,6 +256,8 @@ class DDQNAMNEmsembleAgent(nn.Module):
         states, actions, rewards, next_states, dones = samples
         states = states.to(self.device)
 
+        total_loss = 0
+
         for i in range(self.num_ensembles):
             AMN_q_value = self.policy_net(states)
             expert_q_value = self.target_net(states).detach()
@@ -234,7 +271,9 @@ class DDQNAMNEmsembleAgent(nn.Module):
             loss.backward()
             self.optimizer.step()
 
-            return loss.detach()
+            total_loss += loss.detach()
+
+        return total_loss
 
 
 def to_policy(q_values, tau=0.1):
