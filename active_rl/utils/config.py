@@ -58,7 +58,6 @@ class AMNConfig(DiscreteActionConfig):
 
     def __init__(self):
         super(AMNConfig, self).__init__()
-        self.max_steps = 0
         self.max_labels = 0
         self.agent = None
         self.expert_net_name = None
