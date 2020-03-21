@@ -1,6 +1,7 @@
 # Saved models and logs
 *runs
 *models
+c_cpp_properties.json
 
 # vs code
 settings.json
