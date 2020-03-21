@@ -6,7 +6,7 @@ from collections import deque
 
 class ActionSelector(object):
     def __init__(self, policy_net, INITIAL_EPSILON, FINAL_EPSILON, EPS_DECAY,
-                 n_actions, EVAL_EPS=0.02, device='cuda'):
+                 n_actions, EVAL_EPS=0.05, device='cuda'):
         self._eps = INITIAL_EPSILON
         self._FINAL_EPSILON = FINAL_EPSILON
         self._INITIAL_EPSILON = INITIAL_EPSILON
@@ -46,6 +46,7 @@ def evaluate(policy_net, env_raw, action_selector, num_episode=5):
     q = deque(maxlen=5)
     for _ in range(num_episode):
         env.reset()
+        img, _, _, _ = env.step(1)
         e_reward = 0
         for _ in range(10):  # no-op
             n_frame, _, done, _ = env.step(0)
@@ -54,7 +55,7 @@ def evaluate(policy_net, env_raw, action_selector, num_episode=5):
 
         while not done:
             state = torch.cat(list(q))[1:].unsqueeze(0)
-            action, eps = sa.select_action(state, True)
+            action, eps = sa.select_action(state, training=False)
             n_frame, reward, done, _ = env.step(action)
             n_frame = fp(n_frame)
             q.append(n_frame)

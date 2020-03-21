@@ -1,5 +1,4 @@
 import torch
-from collections import namedtuple
 import torch.nn.functional as F
 
 
@@ -22,10 +21,46 @@ def standard_optimization(policy_net, target_net, optimizer, memory,
 
     # Compute the expected Q values
     expected_state_action_values = (
-        nq * GAMMA)*(1.-dones[:, 0]) + actions[:, 0]
+        nq * GAMMA)*(1.-dones[:, 0]) + rewards[:, 0]
 
     # Compute Huber loss
     loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))
+
+    # Optimize the model
+    optimizer.zero_grad()
+    loss.backward()
+    for param in policy_net.parameters():
+        param.grad.data.clamp_(-1, 1)
+    optimizer.step()
+
+    return loss.detach()
+
+
+def standard_DDQN(policy_net, target_net, optimizer, memory,
+                  batch_size=128, GAMMA=0.99, device='cuda'):
+
+    if len(memory) < batch_size:
+        return 0
+
+    states, actions, rewards, next_states, dones = memory.sample(batch_size)
+
+    states = states.to(device)
+    actions = actions.to(device)
+    rewards = rewards.to(device)
+    next_states = next_states.to(device)
+    dones = dones.to(device)
+    batch_len = states.size(0)
+
+    q = policy_net(states).gather(1, actions)
+    next_actions = policy_net(next_states).max(1)[1].view(batch_len, 1)
+    nq = target_net(next_states).gather(1, next_actions)
+
+    # Compute the expected Q values
+    expected_state_action_values = (
+        nq * GAMMA)*(1.-dones) + rewards
+
+    # Compute Huber loss
+    loss = F.smooth_l1_loss(q, expected_state_action_values)
 
     # Optimize the model
     optimizer.zero_grad()

@@ -2,10 +2,9 @@ import torch
 
 
 class ReplayMemory(object):
-    def __init__(self, capacity, state_shape, n_actions, device):
+    def __init__(self, capacity, state_shape, n_actions):
         c, h, w = state_shape
         self.capacity = capacity
-        self.device = device
         self.m_states = torch.zeros((capacity, c, h, w), dtype=torch.uint8)
         self.m_actions = torch.zeros((capacity, 1), dtype=torch.long)
         self.m_rewards = torch.zeros((capacity, 1), dtype=torch.int8)
