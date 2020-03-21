@@ -19,7 +19,7 @@ class DiscreteActionSelector:
             self._eps -= (self._INITIAL_EPSILON -
                           self._FINAL_EPSILON)/self._EPS_DECAY
             self._eps = max(self._eps, self._FINAL_EPSILON)
-        if sample > self._eps:
+        if sample > self._eps or (not training and sample > 0.01):
             with torch.no_grad():
                 a = self.agent(state.to(self._device)).max(1)[
                     1].cpu().view(1, 1)

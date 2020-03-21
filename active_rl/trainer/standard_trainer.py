@@ -19,11 +19,13 @@ def train_atari(config: DiscreteActionConfig):
                        ncols=400, leave=False, unit='b')
     done = False
     env.reset()
+    total_reward = 0
     for step in progressive:
         state = env.get_state()
         action = action_selector.select_action(state)
         _, reward, done, info = env.step(action)
         all_states = env.get_all_states()
+        total_reward += reward
         memory.push(all_states, action, reward, done)
 
         if step > initial_steps:
@@ -45,3 +47,6 @@ def train_atari(config: DiscreteActionConfig):
 
         if done:
             env.reset()
+            if writer is not None:
+                writer.add_scalar('training_reward', total_reward, step)
+            total_reward = 0

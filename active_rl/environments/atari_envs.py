@@ -19,7 +19,7 @@ class EnvInterface:
 class DiscreteAtariEnv(EnvInterface):
     def __init__(self, config: BaseConfig, eval=False):
         self.env_raw = make_atari('{}NoFrameskip-v4'.format(config.env_name))
-        if eval:
+        if eval is True:
             self.env = wrap_deepmind(self.env_raw)
         else:
             self.env = wrap_deepmind(self.env_raw, frame_stack=False,
@@ -50,6 +50,7 @@ class DiscreteAtariEnv(EnvInterface):
 
     def reset(self):
         self.env.reset()
+        _, _, _, _ = self.env.step(1)
         for _ in range(10):
             frame, _, _, _ = self.env.step(0)
             self.frame_queue.append(fp(frame))

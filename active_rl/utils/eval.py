@@ -5,11 +5,12 @@ def evaluate(config: BaseConfig, num_episode=5):
     env = config.eval_env
     action_selector = config.action_selector
     e_rewards = []
-    done = False
     for _ in range(num_episode):
-        state = env.reset()
+        env.reset()
         e_reward = 0
+        done = False
         while not done:
+            state = env.get_state()
             action = action_selector.select_action(state, False)
             next_state, reward, done, _ = env.step(action)
             e_reward += reward

@@ -20,13 +20,14 @@ class DDQNAgent(nn.Module):
         self.policy_net = self.body(config)
         self.target_net = self.body(config)
         self.update_target()
+        self.target_net.eval()
         self.device = config.device
         self.policy_net.to(self.device)
         self.target_net.to(self.device)
         self.memory = config.memory
         self.gamma = config.gamma
         self.optimizer = config.optimizer(
-            self.policy_net.parameters(), lr=config.lr)
+            self.policy_net.parameters(), lr=config.lr, eps=1.5e-4)
         self.config = config
 
     def forward(self, state):
@@ -43,17 +44,22 @@ class DDQNAgent(nn.Module):
         dones = dones.to(self.device)
 
         q_values = self.policy_net(states).gather(1, actions)
-        next_actions = self.policy_net(next_states).max(1)[
-            1].detach().view(-1, 1)
-        next_q_values = self.target_net(
-            next_states).gather(1, next_actions).detach()
+        next_actions = self.policy_net(next_states).max(1)[1].unsqueeze(1)
+        next_q_values = self.target_net(next_states).gather(1, next_actions)
 
+        # Compute the expected Q values
         expected_state_action_values = (
-            next_q_values * self.gamma) * (1.-dones) + rewards
+            next_q_values * self.gamma)*(1.-dones) + rewards
 
-        loss = F.smooth_l1_loss(q_values, expected_state_action_values)
+        # Compute Huber loss
+        loss = F.smooth_l1_loss(
+            q_values, expected_state_action_values)
+
+        # Optimize the model
         self.optimizer.zero_grad()
         loss.backward()
+        for param in self.policy_net.parameters():
+            param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
         return loss.detach()
@@ -62,4 +68,4 @@ class DDQNAgent(nn.Module):
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def save(self, filename):
-        torch.save(self, filename)
+        torch.save(self.policy_net, filename)
