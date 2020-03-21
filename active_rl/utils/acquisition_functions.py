@@ -142,7 +142,8 @@ def ens_TD_no_target(policy_net, memory, batch_size=128, GAMMA=0.99, device='cud
             expected_state_action_values = (
                 nq * GAMMA)*(1.-done_batch[:, 0]) + reward_batch[:, 0]
             # Compute Huber loss
-            loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))
+            loss = F.smooth_l1_loss(
+                q, expected_state_action_values.unsqueeze(1))
             td_loss[i: i + batch_len] = loss.to('cpu')
     return td_loss
 

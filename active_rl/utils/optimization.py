@@ -3,29 +3,26 @@ from collections import namedtuple
 import torch.nn.functional as F
 
 
-def standard_optimization(policy_net, target_net, optimizer, memory, batch_size=128,
-                          GAMMA=0.99, training=True, device='cuda'):
-    if not training:
-        return None
+def standard_optimization(policy_net, target_net, optimizer, memory,
+                          batch_size=128, GAMMA=0.99, device='cuda'):
 
     if len(memory) < batch_size:
         return 0
 
-    state_batch, action_batch, reward_batch, n_state_batch, done_batch = memory.sample(
-        batch_size)
+    states, actions, rewards, next_states, dones = memory.sample(batch_size)
 
-    state_batch = state_batch.to(device)
-    action_batch = action_batch.to(device)
-    reward_batch = reward_batch.to(device)
-    n_state_batch = n_state_batch.to(device)
-    done_batch = done_batch.to(device)
+    states = states.to(device)
+    actions = actions.to(device)
+    rewards = rewards.to(device)
+    next_states = next_states.to(device)
+    dones = dones.to(device)
 
-    q = policy_net(state_batch).gather(1, action_batch)
-    nq = target_net(n_state_batch).max(1)[0].detach()
+    q = policy_net(states).gather(1, actions)
+    nq = target_net(next_states).max(1)[0].detach()
 
     # Compute the expected Q values
     expected_state_action_values = (
-        nq * GAMMA)*(1.-done_batch[:, 0]) + reward_batch[:, 0]
+        nq * GAMMA)*(1.-dones[:, 0]) + actions[:, 0]
 
     # Compute Huber loss
     loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))
@@ -190,7 +187,8 @@ def AMN_optimization_ensemble_epochs(AMN_net, expert_net, optimizer, memory, epo
                     actual_batch_size = bs_len - i
                 next_bs = bs[i: i + actual_batch_size].to(device)
                 loss += _AMN_optimization_ENS(AMN_net, expert_net,
-                                              optimizer, next_bs, ens_num=ens_num,  GAMMA=GAMMA)
+                                              optimizer, next_bs,
+                                              ens_num=ens_num,  GAMMA=GAMMA)
     return loss
 
 
@@ -201,7 +199,8 @@ def AMN_optimization_ensemble(AMN_net, expert_net, optimizer, memory,
     bs = bs.to(device)
     for ens_num in range(AMN_net.get_num_ensembles()):
         loss += _AMN_optimization_ENS(AMN_net, expert_net,
-                                      optimizer, bs, ens_num=ens_num,  GAMMA=GAMMA)
+                                      optimizer, bs, ens_num=ens_num,
+                                      GAMMA=GAMMA)
     return loss
 
 
@@ -217,36 +216,35 @@ def AMN_optimization_epochs(AMN_net, expert_net, optimizer, memory, epochs,
             else:
                 actual_batch_size = bs_len - i
             next_bs = bs[i: i + actual_batch_size].to(device)
-            loss += _AMN_optimization(AMN_net,
-                                      expert_net, optimizer, next_bs, GAMMA=GAMMA)
+            loss += _AMN_optimization(AMN_net, expert_net,
+                                      optimizer, next_bs, GAMMA=GAMMA)
     return loss
 
 
-def standard_optimization_ensemble(policy_net, target_net, optimizer, memory, batch_size=128,
-                                   GAMMA=0.99, device='cuda'):
+def standard_optimization_ensemble(policy_net, target_net, optimizer, memory,
+                                   batch_size=128, GAMMA=0.99, device='cuda'):
     """
     Apply the standard procedure to an ensemble of deep Q network.
     """
     if len(memory) < batch_size:
         return 0
 
-    state_batch, action_batch, reward_batch, n_state_batch, done_batch = memory.sample(
-        batch_size)
+    states, actions, rewards, next_states, dones = memory.sample(batch_size)
 
-    state_batch = state_batch.to(device)
-    action_batch = action_batch.to(device)
-    reward_batch = reward_batch.to(device)
-    n_state_batch = n_state_batch.to(device)
-    done_batch = done_batch.to(device)
+    states = states.to(device)
+    actions = actions.to(device)
+    rewards = rewards.to(device)
+    next_states = next_states.to(device)
+    dones = dones.to(device)
 
     total_loss = 0
     for ens_num in range(policy_net.get_num_ensembles()):
-        q = policy_net(state_batch, ens_num=ens_num).gather(1, action_batch)
-        nq = target_net(n_state_batch, ens_num=ens_num).max(1)[0].detach()
+        q = policy_net(states, ens_num=ens_num).gather(1, actions)
+        nq = target_net(next_states, ens_num=ens_num).max(1)[0].detach()
 
         # Compute the expected Q values
         expected_state_action_values = (
-            nq * GAMMA)*(1.-done_batch[:, 0]) + reward_batch[:, 0]
+            nq * GAMMA)*(1.-dones[:, 0]) + rewards[:, 0]
 
         # Compute Huber loss
         loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))

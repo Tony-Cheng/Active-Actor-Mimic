@@ -1,18 +1,18 @@
-import numpy as np
 import torch
 import random
-import math
 from environments.atari_wrappers import wrap_deepmind
 from collections import deque
-import cv2
+
 
 class ActionSelector(object):
-    def __init__(self, INITIAL_EPSILON, FINAL_EPSILON, policy_net, EPS_DECAY, n_actions, device):
+    def __init__(self, policy_net, INITIAL_EPSILON, FINAL_EPSILON, EPS_DECAY,
+                 n_actions, EVAL_EPS=0.02, device='cuda'):
         self._eps = INITIAL_EPSILON
         self._FINAL_EPSILON = FINAL_EPSILON
         self._INITIAL_EPSILON = INITIAL_EPSILON
         self._policy_net = policy_net
         self._EPS_DECAY = EPS_DECAY
+        self._EVAL_EPS = EVAL_EPS
         self._n_actions = n_actions
         self._device = device
 
@@ -22,7 +22,7 @@ class ActionSelector(object):
             self._eps -= (self._INITIAL_EPSILON -
                           self._FINAL_EPSILON)/self._EPS_DECAY
             self._eps = max(self._eps, self._FINAL_EPSILON)
-        if sample > self._eps:
+        if sample > self._eps or (not training and sample > self._EVAL_EPS):
             with torch.no_grad():
                 a = self._policy_net(state.to(self._device)).max(1)[
                     1].cpu().view(1, 1)
@@ -38,15 +38,16 @@ def fp(n_frame):
     h = n_frame.shape[-2]
     return n_frame.view(1, h, h)
 
-def evaluate(step, policy_net, device, env, n_actions, eps=0.05, num_episode=5):
+
+def evaluate(step, policy_net, env, action_selector, num_episode=5):
     env = wrap_deepmind(env)
-    sa = ActionSelector(eps, eps, policy_net, 1, n_actions, device)
+    sa = action_selector
     e_rewards = []
     q = deque(maxlen=5)
     for _ in range(num_episode):
         env.reset()
         e_reward = 0
-        for _ in range(10): # no-op
+        for _ in range(10):  # no-op
             n_frame, _, done, _ = env.step(0)
             n_frame = fp(n_frame)
             q.append(n_frame)
@@ -57,7 +58,7 @@ def evaluate(step, policy_net, device, env, n_actions, eps=0.05, num_episode=5):
             n_frame, reward, done, _ = env.step(action)
             n_frame = fp(n_frame)
             q.append(n_frame)
-            
+
             e_reward += reward
         e_rewards.append(e_reward)
 
