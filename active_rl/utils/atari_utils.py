@@ -1,13 +1,12 @@
-import numpy as np
 import torch
 import random
-import math
-from environments.atari_wrappers import wrap_deepmind
+from ..environments.atari_wrappers import wrap_deepmind
 from collections import deque
-import cv2
+
 
 class ActionSelector(object):
-    def __init__(self, INITIAL_EPSILON, FINAL_EPSILON, policy_net, EPS_DECAY, n_actions, device):
+    def __init__(self, INITIAL_EPSILON, FINAL_EPSILON, policy_net, EPS_DECAY,
+                 n_actions, device):
         self._eps = INITIAL_EPSILON
         self._FINAL_EPSILON = FINAL_EPSILON
         self._INITIAL_EPSILON = INITIAL_EPSILON
@@ -38,6 +37,7 @@ def fp(n_frame):
     h = n_frame.shape[-2]
     return n_frame.view(1, h, h)
 
+
 def evaluate(step, policy_net, device, env, n_actions, eps=0.05, num_episode=5):
     env = wrap_deepmind(env)
     sa = ActionSelector(eps, eps, policy_net, 1, n_actions, device)
@@ -46,7 +46,7 @@ def evaluate(step, policy_net, device, env, n_actions, eps=0.05, num_episode=5):
     for _ in range(num_episode):
         env.reset()
         e_reward = 0
-        for _ in range(10): # no-op
+        for _ in range(10):  # no-op
             n_frame, _, done, _ = env.step(0)
             n_frame = fp(n_frame)
             q.append(n_frame)
@@ -57,7 +57,7 @@ def evaluate(step, policy_net, device, env, n_actions, eps=0.05, num_episode=5):
             n_frame, reward, done, _ = env.step(action)
             n_frame = fp(n_frame)
             q.append(n_frame)
-            
+
             e_reward += reward
         e_rewards.append(e_reward)
 

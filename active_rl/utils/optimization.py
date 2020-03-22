@@ -222,8 +222,8 @@ def AMN_optimization_epochs(AMN_net, expert_net, optimizer, memory, epochs,
     return loss
 
 
-def standard_optimization_ensemble(policy_net, target_net, optimizer, memory, batch_size=128,
-                                   GAMMA=0.99, device='cuda'):
+def standard_optimization_ensemble(policy_net, target_net, optimizer, memory,
+                                   batch_size=128, GAMMA=0.99, device='cuda'):
     """
     Apply the standard procedure to an ensemble of deep Q network.
     """
@@ -250,15 +250,14 @@ def standard_optimization_ensemble(policy_net, target_net, optimizer, memory, ba
 
         # Compute Huber loss
         loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))
+        total_loss += loss
 
-        # Optimize the model
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+    # Optimize the model
+    optimizer.zero_grad()
+    total_loss.backward()
+    optimizer.step()
 
-        total_loss += loss.detach()
-
-    return total_loss
+    return total_loss.detach()
 
 
 def to_policy(q_values, tau=0.1):
