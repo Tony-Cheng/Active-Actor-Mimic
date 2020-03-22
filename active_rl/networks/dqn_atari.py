@@ -1,8 +1,6 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-import random
-import torch.optim as optim 
 
 
 class DQN(nn.Module):
@@ -33,6 +31,35 @@ class DQN(nn.Module):
             return self.fc2(x), x
         else:
             return self.fc2(x)
+
+
+class DQN_Large(nn.Module):
+    def __init__(self, n_actions):
+        super(DQN_Large, self).__init__()
+        self.conv1 = nn.Conv2d(4, 64, kernel_size=8, stride=4)
+        self.conv2 = nn.Conv2d(64, 128, kernel_size=4, stride=2)
+        self.conv3 = nn.Conv2d(128, 128, kernel_size=3, stride=1)
+        self.fc1 = nn.Linear(128*7*7, 2048)
+        self.fc2 = nn.Linear(2048, 512)
+        self.fc3 = nn.Linear(512, n_actions)
+
+    def init_weights(self, m):
+        if type(m) == nn.Linear:
+            torch.nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+            m.bias.data.fill_(0.0)
+
+        if type(m) == nn.Conv2d:
+            torch.nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+            # m.bias.data.fill_(0.1)
+
+    def forward(self, x, last_layer=False):
+        x = x.float() / 255.
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.fc1(x.view(x.size(0), -1)))
+        x = F.relu(self.fc2(x))
+        return self.fc3(x)
 
 
 class MC_DQN(nn.Module):
@@ -109,13 +136,13 @@ class ENS_DQN(nn.Module):
 
     def get_num_ensembles(self):
         return len(self.ensembles)
-    
+
     def state_dict(self):
         dicts = []
         for i in range(len(self.ensembles)):
             dicts.append(self.ensembles[i].state_dict())
         return dicts
-    
+
     def load_state_dict(self, dicts):
         for i in range(len(dicts)):
             self.ensembles[i].load_state_dict(dicts[i])
@@ -123,6 +150,18 @@ class ENS_DQN(nn.Module):
     def eval(self):
         for i in range(len(self.ensembles)):
             self.ensembles[i].eval()
+
+
+class ENS_DQN_LARGE(ENS_DQN):
+    def __init__(self, n_actions=4, num_networks=5):
+        super(ENS_DQN_LARGE, self).__init__()
+        self.ensembles = []
+        self.num_networks = num_networks
+
+        for _ in range(num_networks):
+            new_net = DQN_Large(n_actions)
+            self.ensembles.append(new_net)
+
 
 def to_policy(q_values, tau=0.1):
     return F.softmax(q_values / tau, dim=1)
