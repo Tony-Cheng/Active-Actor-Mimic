@@ -1,12 +1,12 @@
 import torch
 import random
-from ..environments import wrap_deepmind, make_atari
+from ..environments.atari_wrappers import wrap_deepmind
 from collections import deque
 
 
 class ActionSelector(object):
-    def __init__(self, policy_net, INITIAL_EPSILON, FINAL_EPSILON, EPS_DECAY,
-                 n_actions, EVAL_EPS=0.05, device='cuda'):
+    def __init__(self, INITIAL_EPSILON, FINAL_EPSILON, policy_net, EPS_DECAY,
+                 n_actions, device):
         self._eps = INITIAL_EPSILON
         self._FINAL_EPSILON = FINAL_EPSILON
         self._INITIAL_EPSILON = INITIAL_EPSILON
@@ -39,9 +39,9 @@ def fp(n_frame):
     return n_frame.view(1, h, h)
 
 
-def evaluate(policy_net, env_raw, action_selector, num_episode=5):
-    env = wrap_deepmind(env_raw)
-    sa = action_selector
+def evaluate(step, policy_net, device, env, n_actions, eps=0.05, num_episode=5):
+    env = wrap_deepmind(env)
+    sa = ActionSelector(eps, eps, policy_net, 1, n_actions, device)
     e_rewards = []
     q = deque(maxlen=5)
     for _ in range(num_episode):
