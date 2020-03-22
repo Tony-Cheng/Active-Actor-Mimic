@@ -53,7 +53,7 @@ def standard_DDQN(policy_net, target_net, optimizer, memory,
 
     q = policy_net(states).gather(1, actions)
     next_actions = policy_net(next_states).max(1)[1].view(batch_len, 1)
-    nq = target_net(next_states).gather(1, next_actions)
+    nq = target_net(next_states).gather(1, next_actions).detach()
 
     # Compute the expected Q values
     expected_state_action_values = (
@@ -274,6 +274,48 @@ def standard_optimization_ensemble(policy_net, target_net, optimizer, memory,
 
         # Compute Huber loss
         loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))
+
+        # Optimize the model
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.detach()
+
+    return total_loss / policy_net.get_num_ensembles()
+
+
+def standard_opt_ens_ddqn(policy_net, target_net, optimizer, memory,
+                          batch_size=128, GAMMA=0.99, device='cuda'):
+    """
+    Apply the standard procedure to an ensemble of deep Q network.
+    """
+    if len(memory) < batch_size:
+        return 0
+
+    states, actions, rewards, next_states, dones = memory.sample(batch_size)
+
+    states = states.to(device)
+    actions = actions.to(device)
+    rewards = rewards.to(device)
+    next_states = next_states.to(device)
+    dones = dones.to(device)
+    batch_len = states.size(0)
+
+    total_loss = 0
+    for ens_num in range(policy_net.get_num_ensembles()):
+        q = policy_net(states, ens_num=ens_num).gather(1, actions)
+        next_actions = policy_net(next_states, ens_num=ens_num).max(1)[
+            1].view(batch_len, 1)
+        nq = target_net(next_states, ens_num=ens_num).gather(
+            1, next_actions).detach()
+
+        # Compute the expected Q values
+        expected_state_action_values = (
+            nq * GAMMA)*(1.-dones) + rewards
+
+        # Compute Huber loss
+        loss = F.smooth_l1_loss(q, expected_state_action_values)
 
         # Optimize the model
         optimizer.zero_grad()
