@@ -40,7 +40,7 @@ def standard_optimization(policy_net, target_net, optimizer, memory, batch_size=
 
 
 def standard_ddqn_optimization(policy_net, target_net, optimizer, memory,
-                               batch_size=128, GAMMA=0.99, training=True, 
+                               batch_size=128, GAMMA=0.99, training=True,
                                device='cuda'):
     if not training:
         return None
