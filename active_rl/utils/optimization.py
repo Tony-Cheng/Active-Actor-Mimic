@@ -67,7 +67,7 @@ def standard_ddqn_optimization(policy_net, target_net, optimizer, memory,
         nq * GAMMA)*(1.-done_batch) + reward_batch
 
     # Compute Huber loss
-    loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))
+    loss = F.smooth_l1_loss(q, expected_state_action_values)
 
     # Optimize the model
     optimizer.zero_grad()
@@ -296,7 +296,49 @@ def standard_optimization_ensemble(policy_net, target_net, optimizer, memory,
     total_loss.backward()
     optimizer.step()
 
-    return total_loss.detach()
+    return total_loss.detach() / policy_net.get_num_ensembles()
+
+
+def standard_opt_ddqn_ensemble(policy_net, target_net, optimizer, memory,
+                               batch_size=128, GAMMA=0.99, device='cuda'):
+    """
+    Apply the standard procedure to an ensemble of deep Q network.
+    """
+    if len(memory) < batch_size:
+        return 0
+
+    state_batch, action_batch, reward_batch, n_state_batch, done_batch = memory.sample(
+        batch_size)
+
+    state_batch = state_batch.to(device)
+    action_batch = action_batch.to(device)
+    reward_batch = reward_batch.to(device)
+    n_state_batch = n_state_batch.to(device)
+    done_batch = done_batch.to(device)
+    batch_len = state_batch.size(0)
+
+    total_loss = 0
+    for ens_num in range(policy_net.get_num_ensembles()):
+        q = policy_net(state_batch, ens_num=ens_num).gather(1, action_batch)
+        na = policy_net(n_state_batch, ens_num=ens_num).max(1)[
+            1].view(batch_len, 1)
+        nq = target_net(n_state_batch, ens_num=ens_num).gather(
+            1, na).detach()
+
+        # Compute the expected Q values
+        expected_state_action_values = (
+            nq * GAMMA)*(1.-done_batch) + reward_batch
+
+        # Compute Huber loss
+        loss = F.smooth_l1_loss(q, expected_state_action_values)
+        total_loss += loss
+
+    # Optimize the model
+    optimizer.zero_grad()
+    total_loss.backward()
+    optimizer.step()
+
+    return total_loss.detach() / policy_net.get_num_ensembles()
 
 
 def to_policy(q_values, tau=0.1):
