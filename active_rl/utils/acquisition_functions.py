@@ -142,9 +142,34 @@ def ens_TD_no_target(policy_net, memory, batch_size=128, GAMMA=0.99, device='cud
             expected_state_action_values = (
                 nq * GAMMA)*(1.-done_batch[:, 0]) + reward_batch[:, 0]
             # Compute Huber loss
-            loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))
+            loss = F.smooth_l1_loss(
+                q, expected_state_action_values.unsqueeze(1))
             td_loss[i: i + batch_len] = loss.to('cpu')
     return td_loss
+
+
+def ens_SNR(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
+    SNR = torch.zeros((states.shape[0]), dtype=torch.float)
+    for i in range(0, states.shape[0], batch_size):
+        if i + batch_size < states.shape[0]:
+            batch_len = batch_size
+        else:
+            batch_len = states.shape[0] - i
+        next_states = states[i: i + batch_len, :, :].to(device)
+        sum_q = 0
+        sum_q_2 = 0
+        num_ens = policy_net.get_num_ensembles()
+        for j in range(num_ens):
+            with torch.no_grad():
+                q_values = policy_net(next_states, ens_num=j)
+                sum_q += q_values
+                sum_q_2 += q_values ** 2
+        sample_var = (sum_q_2 - (sum_q ** 2) / num_ens) / (num_ens - 1)
+        n_actions = sample_var.size(1)
+        cur_SNR = torch.sum(sample_var / ((sum_q / num_ens)
+                                          ** 2 + 1e-8), dim=1) / n_actions
+        SNR[i: i + batch_len] = cur_SNR.to('cpu')
+    return SNR
 
 
 def ens_random(policy_net, states, tau=0.1, batch_size=128, device='cuda'):

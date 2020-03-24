@@ -241,7 +241,7 @@ def AMN_optimization_ensemble(AMN_net, expert_net, optimizer, memory,
     for ens_num in range(AMN_net.get_num_ensembles()):
         loss += _AMN_optimization_ENS(AMN_net, expert_net,
                                       optimizer, bs, ens_num=ens_num,  GAMMA=GAMMA)
-    return loss
+    return loss / AMN_net.get_num_ensembles()
 
 
 def AMN_optimization_epochs(AMN_net, expert_net, optimizer, memory, epochs,
