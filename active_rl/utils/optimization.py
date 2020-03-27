@@ -1,5 +1,7 @@
 import torch
 import torch.nn.functional as F
+# from baselines.deepq.replay_buffer import PrioritizedReplayBuffer
+from .priority_replay import PrioritizedReplayBuffer
 
 
 def standard_optimization(policy_net, target_net, optimizer, memory, batch_size=128,
@@ -337,6 +339,49 @@ def standard_opt_ddqn_ensemble(policy_net, target_net, optimizer, memory,
     optimizer.zero_grad()
     total_loss.backward()
     optimizer.step()
+
+    return total_loss.detach() / policy_net.get_num_ensembles()
+
+
+def standard_opt_ens_priority(policy_net, target_net, optimizer,
+                              memory: PrioritizedReplayBuffer, rank_func,
+                              batch_size=128, GAMMA=0.99, beta=0.5,
+                              device='cuda'):
+    if len(memory) < batch_size:
+        return 0
+
+    data = memory.sample(batch_size, beta)
+
+    state_batch = torch.FloatTensor(data[0]).to(device)
+    batch_len = state_batch.size(0)
+    action_batch = torch.from_numpy(data[1]).to(device).view(batch_len, 1)
+    reward_batch = torch.FloatTensor(data[2]).to(device).view(batch_len, 1)
+    n_state_batch = torch.FloatTensor(data[3]).to(device)
+    done_batch = torch.FloatTensor(data[4]).to(device).view(batch_len, 1)
+    idxs = data[6]
+
+    total_loss = 0
+    for ens_num in range(policy_net.get_num_ensembles()):
+        q = policy_net(state_batch, ens_num=ens_num).gather(1, action_batch)
+        nq = target_net(n_state_batch, ens_num=ens_num).max(1)[0].detach()
+
+        # Compute the expected Q values
+        expected_state_action_values = (
+            nq * GAMMA)*(1.-done_batch[:, 0]) + reward_batch[:, 0]
+
+        # Compute Huber loss
+        loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))
+        total_loss += loss
+
+    # Optimize the model
+    optimizer.zero_grad()
+    total_loss.backward()
+    optimizer.step()
+
+    priorities = rank_func(policy_net, state_batch,
+                           batch_size=batch_size, device=device)
+
+    memory.update_priorities(idxs, priorities)
 
     return total_loss.detach() / policy_net.get_num_ensembles()
 

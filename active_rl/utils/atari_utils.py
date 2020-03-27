@@ -53,7 +53,7 @@ def evaluate(step, policy_net, device, env, n_actions, eps=0.05, num_episode=5):
 
         while not done:
             state = torch.cat(list(q))[1:].unsqueeze(0)
-            action, eps = sa.select_action(state, True)
+            action, eps = sa.select_action(state, training=False)
             n_frame, reward, done, _ = env.step(action)
             n_frame = fp(n_frame)
             q.append(n_frame)
