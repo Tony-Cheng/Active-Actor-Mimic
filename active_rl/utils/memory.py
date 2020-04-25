@@ -22,10 +22,10 @@ class ReplayMemory(object):
         self.position = (self.position + 1) % self.capacity
         self.size = max(self.size, self.position)
 
-    def sample(self, bs):
-        if bs is None or len(self) < bs:
-            bs = len(self)
-        i = torch.randint(0, high=self.size, size=(bs,))
+    def sample(self, batch_size):
+        if batch_size is None or len(self) < batch_size:
+            batch_size = len(self)
+        i = torch.randint(0, high=self.size, size=(batch_size,))
         bs = self.m_states[i, :4]
         bns = self.m_states[i, 1:]
         ba = self.m_actions[i]
@@ -161,7 +161,7 @@ class LabeledReplayMemory():
         return bs.shape[0]
 
     def sample(self, batch_size=None):
-        bs, ba, br, bns, bd = self.labeled_buffer.sample(bs=batch_size)
+        bs, ba, br, bns, bd = self.labeled_buffer.sample(batch_size=batch_size)
         return bs, ba, br, bns, bd
 
     def __len__(self):
@@ -237,7 +237,7 @@ class GeneralLabeledReplayMemory():
         return bs.shape[0]
 
     def sample(self, batch_size=None):
-        bs, ba, br, bns, bd = self.labeled_buffer.sample(bs=batch_size)
+        bs, ba, br, bns, bd = self.labeled_buffer.sample(batch_size=batch_size)
         return bs, ba, br, bns, bd
 
     def __len__(self):

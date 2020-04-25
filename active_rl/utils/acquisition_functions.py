@@ -172,5 +172,59 @@ def ens_SNR(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
     return SNR
 
 
+def ens_N2S(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
+    n2s = torch.zeros((states.shape[0]), dtype=torch.float)
+    for i in range(0, states.shape[0], batch_size):
+        if i + batch_size < states.shape[0]:
+            batch_len = batch_size
+        else:
+            batch_len = states.shape[0] - i
+        next_states = states[i: i + batch_len, :, :].to(device)
+        q_vals = []
+        num_ens = policy_net.get_num_ensembles()
+        for j in range(num_ens):
+            with torch.no_grad():
+                q_vals.append(policy_net(next_states, ens_num=j))
+        q_vals = torch.stack(q_vals)
+        expected_q_vals = torch.sum(q_vals, dim=0) / num_ens
+        sample_var = torch.sum((q_vals - expected_q_vals)
+                               ** 2, dim=0) / (num_ens - 1)
+        n2s_ratio = sample_var / (expected_q_vals ** 2 + 1e-6)
+        n2s[i: i + batch_len] = torch.sum(n2s_ratio, dim=1).to('cpu')
+    return n2s
+
+
+def ens_n2s_action_gap(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
+    n2s = torch.zeros((states.shape[0]), dtype=torch.float)
+    for i in range(0, states.shape[0], batch_size):
+        if i + batch_size < states.shape[0]:
+            batch_len = batch_size
+        else:
+            batch_len = states.shape[0] - i
+        next_states = states[i: i + batch_len, :, :].to(device)
+        q_vals = []
+        num_ens = policy_net.get_num_ensembles()
+        for j in range(num_ens):
+            with torch.no_grad():
+                q_vals.append(policy_net(next_states, ens_num=j))
+        q_vals = torch.stack(q_vals)
+        expected_q_vals = torch.sum(q_vals, dim=0) / num_ens
+        top_actions = torch.argsort(
+            expected_q_vals, dim=1, descending=True)[:, :2]
+        a1_q_vals = q_vals.gather(
+            2, top_actions[:, 0:1].unsqueeze(0).expand_as(q_vals[:, :, 0:1]))
+        a2_q_vals = q_vals.gather(
+            2, top_actions[:, 1:2].unsqueeze(0).expand_as(q_vals[:, :, 0:1]))
+        q_vals_difference = a1_q_vals - a2_q_vals
+
+        expected_q_vals_difference = torch.sum(
+            q_vals_difference, dim=0) / num_ens
+        sample_var = torch.sum((q_vals_difference - expected_q_vals_difference)
+                               ** 2, dim=0) / (num_ens - 1)
+        n2s_ratio = sample_var / (expected_q_vals_difference ** 2 + 1e-6)
+        n2s[i: i + batch_len] = torch.sum(n2s_ratio, dim=1).to('cpu')
+    return n2s
+
+
 def ens_random(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
     return torch.randn((states.shape[0]), dtype=torch.float)
