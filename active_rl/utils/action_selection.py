@@ -78,3 +78,68 @@ class DirichletActionSelector(object):
                              device='cpu', dtype=torch.long)
 
         return a.numpy()[0, 0].item(), self._eps
+
+
+class ArgmaxActionSelector(object):
+    def __init__(self, INITIAL_EPSILON, FINAL_EPSILON, policy_net, EPS_DECAY,
+                 n_actions, device):
+        self._eps = INITIAL_EPSILON
+        self._FINAL_EPSILON = FINAL_EPSILON
+        self._INITIAL_EPSILON = INITIAL_EPSILON
+        self._policy_net = policy_net
+        self._EPS_DECAY = EPS_DECAY
+        self._n_actions = n_actions
+        self._device = device
+
+    def select_action(self, state, training=True):
+        sample = random.random()
+        if training:
+            self._eps -= (self._INITIAL_EPSILON -
+                          self._FINAL_EPSILON)/self._EPS_DECAY
+            self._eps = max(self._eps, self._FINAL_EPSILON)
+        if sample > self._eps:
+            opt_a = None
+            opt_v = None
+            for i in range(self._policy_net.get_num_ensembles()):
+                with torch.no_grad():
+                    q_val = self._policy_net(state.to(self._device)).max(1)
+                    a = q_val[1].cpu().view(1, 1)
+                    v = q_val[0].cpu().view(1, 1).numpy()[0, 0].item()
+                    if opt_v is None or v > opt_v:
+                        opt_v = v
+                        opt_a = a
+        else:
+            opt_a = torch.tensor([[random.randrange(self._n_actions)]],
+                                 device='cpu', dtype=torch.long)
+
+        return opt_a.numpy()[0, 0].item(), self._eps
+
+
+class DuoActionSelector(object):
+    def __init__(self, INITIAL_EPSILON, FINAL_EPSILON, policy_net1,
+                 policy_net2, EPS_DECAY, n_actions, device):
+        self._eps = INITIAL_EPSILON
+        self._FINAL_EPSILON = FINAL_EPSILON
+        self._INITIAL_EPSILON = INITIAL_EPSILON
+        self._policy_net1 = policy_net1
+        self._policy_net2 = policy_net2
+        self._EPS_DECAY = EPS_DECAY
+        self._n_actions = n_actions
+        self._device = device
+
+    def select_action(self, state, training=True):
+        sample = random.random()
+        if training:
+            self._eps -= (self._INITIAL_EPSILON -
+                          self._FINAL_EPSILON)/self._EPS_DECAY
+            self._eps = max(self._eps, self._FINAL_EPSILON)
+        if sample > self._eps:
+            with torch.no_grad():
+                a = self._policy_net1(state.to(self._device)).max(1)[
+                    1].cpu().view(1, 1)
+        else:
+            with torch.no_grad():
+                a = self._policy_net2(state.to(self._device)).max(1)[
+                    1].cpu().view(1, 1)
+
+        return a.numpy()[0, 0].item(), self._eps

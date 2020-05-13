@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 # from baselines.deepq.replay_buffer import PrioritizedReplayBuffer
 from .priority_replay import PrioritizedReplayBuffer
+from .acquisition_functions import ens_BALD
 
 
 def standard_optimization(policy_net, target_net, optimizer, memory, batch_size=128,
@@ -288,6 +289,42 @@ def standard_optimization_ensemble(policy_net, target_net, optimizer, memory,
         # Compute the expected Q values
         expected_state_action_values = (
             nq * GAMMA)*(1.-done_batch[:, 0]) + reward_batch[:, 0]
+
+        # Compute Huber loss
+        loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))
+        total_loss += loss
+
+    # Optimize the model
+    optimizer.zero_grad()
+    total_loss.backward()
+    optimizer.step()
+
+    return total_loss.detach() / policy_net.get_num_ensembles()
+
+
+def xplore_opt_ens_BALD(policy_net, target_net, agent_net, optimizer, mem,
+                        batch_size=128, GAMMA=0.99, device='cuda'):
+    """
+    Apply the standard procedure to an ensemble of deep Q network.
+    """
+
+    state, action, reward, n_state, done = mem.sample(batch_size)
+
+    state = state.to(device)
+    action = action.to(device)
+    reward = ens_BALD(agent_net, state, tau=1.0,
+                      batch_size=batch_size, device=device)
+    n_state = n_state.to(device)
+    done = done.to(device)
+
+    total_loss = 0
+    for ens_num in range(policy_net.get_num_ensembles()):
+        q = policy_net(state, ens_num=ens_num).gather(1, action)
+        nq = target_net(n_state, ens_num=ens_num).max(1)[0].detach()
+
+        # Compute the expected Q values
+        expected_state_action_values = (
+            nq * GAMMA)*(1.-done[:, 0]) + reward[:, 0]
 
         # Compute Huber loss
         loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))

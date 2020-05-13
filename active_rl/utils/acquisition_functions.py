@@ -145,6 +145,29 @@ def ens_BALD_prob(policy_net, obs, tau=0.1, batch_size=128, device='cuda'):
     return BALD_val * prob
 
 
+def ens_BALD_prob_sum(policy_net, obs, tau=0.1, batch_size=128, device='cuda'):
+    states, actions, _, _, _ = obs
+    BALD_val = ens_BALD(policy_net, states, tau=tau, batch_size=batch_size,
+                        device=device)
+    prob = torch.zeros((states.shape[0]), dtype=torch.float)
+    for i in range(0, states.shape[0], batch_size):
+        if i + batch_size < states.shape[0]:
+            batch_len = batch_size
+        else:
+            batch_len = states.shape[0] - i
+        next_states = states[i: i + batch_len, :, :].to(device)
+        next_actions = actions[i: i + batch_len, :].to(device)
+        total_policy = 0
+        for j in range(policy_net.get_num_ensembles()):
+            with torch.no_grad():
+                q_values = policy_net(next_states, ens_num=j)
+                policy = to_policy(q_values, tau=tau).gather(1, next_actions)
+                total_policy += policy.squeeze()
+        total_policy /= policy_net.get_num_ensembles()
+        prob[i: i + batch_len] = total_policy.to('cpu')
+    return BALD_val + prob
+
+
 def ens_BALD_inv_prob(policy_net, obs, tau=0.1, batch_size=128, device='cuda'):
     states, actions, _, _, _ = obs
     BALD_val = ens_BALD(policy_net, states, tau=tau, batch_size=batch_size,

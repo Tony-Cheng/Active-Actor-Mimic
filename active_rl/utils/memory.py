@@ -264,3 +264,74 @@ class DuoMemory():
 
     def __len__(self):
         return min(len(self.memory1), len(self.memory2))
+
+
+class _ObsRankedReplayMemory(object):
+    def __init__(self, capacity, state_shape, n_actions, rank_func, AMN_net,
+                 device='cuda'):
+        c, h, w = state_shape
+        self.capacity = capacity
+        self.device = device
+        self.m_states = torch.zeros((capacity, c, h, w), dtype=torch.uint8)
+        self.m_actions = torch.zeros((capacity, 1), dtype=torch.long)
+        self.m_rewards = torch.zeros((capacity, 1), dtype=torch.int8)
+        self.m_dones = torch.zeros((capacity, 1), dtype=torch.bool)
+        self.position = 0
+        self.size = 0
+        self.rank_func = rank_func
+        self.AMN_net = AMN_net
+
+    def push(self, state, action, reward, done):
+        """Saves a transition."""
+        self.m_states[self.position] = state  # 5,84,84
+        self.m_actions[self.position, 0] = action
+        self.m_rewards[self.position, 0] = reward
+        self.m_dones[self.position, 0] = done
+        self.position = (self.position + 1) % self.capacity
+        self.size = max(self.size, self.position)
+
+    def sample(self, percentage=0.1):
+        obs = (self.m_states[: self.size, :4], self.m_actions[: self.size],
+               self.m_rewards[: self.size], self.m_states[: self.size, 1:],
+               self.m_dones[: self.size])
+        _, i = torch.sort(self.rank_func(self.AMN_net, obs,
+                                         device=self.device), descending=True)
+        i = i[: int(percentage * self.size)]
+        i = i[torch.randperm(i.shape[0])]
+        # i = torch.randint(0, high=self.size, size=(bs,))
+        bs = self.m_states[i]
+        ba = self.m_actions[i]
+        br = self.m_rewards[i].float()
+        bd = self.m_dones[i].float()
+        return bs, ba, br, bd
+
+    def __len__(self):
+        return self.size
+
+
+class ObsLabeledReplayMemory():
+    def __init__(self, capacity_not_labelled, capacity_labelled, state_shape,
+                 n_actions, rank_func, AMN_net, device='cuda'):
+        self.device = device
+        self.labeled_buffer = ReplayMemory(
+            capacity_labelled, state_shape, n_actions, device)
+        self.rank_buffer = _ObsRankedReplayMemory(
+            capacity_not_labelled, state_shape, n_actions, rank_func, AMN_net,
+            device=device)
+
+    def push(self, state, action, reward, done):
+        """Saves a transition."""
+        self.rank_buffer.push(state, action, reward, done)
+
+    def label_sample(self, percentage=0.1):
+        bs, ba, br, bd = self.rank_buffer.sample(percentage=percentage)
+        for i in range(bs.shape[0]):
+            self.labeled_buffer.push(bs[i], ba[i, 0], br[i, 0], bd[i, 0])
+        return bs.shape[0]
+
+    def sample(self, batch_size=None):
+        bs, ba, br, bns, bd = self.labeled_buffer.sample(batch_size=batch_size)
+        return bs, ba, br, bns, bd
+
+    def __len__(self):
+        return len(self.labeled_buffer)
