@@ -313,7 +313,8 @@ def xplore_opt_ens_BALD(policy_net, target_net, agent_net, optimizer, mem,
     state = state.to(device)
     action = action.to(device)
     reward = ens_BALD(agent_net, state, tau=1.0,
-                      batch_size=batch_size, device=device)
+                      batch_size=batch_size, device=device).unsqueeze(1).to(
+                          device)
     n_state = n_state.to(device)
     done = done.to(device)
 
@@ -428,7 +429,7 @@ def standard_opt_ens_priority(policy_net, target_net, optimizer,
 
 def standard_opt_ens_priority_td(policy_net, target_net, optimizer,
                                  memory: PrioritizedReplayBuffer,
-                                 batch_size=128, GAMMA=0.99, beta=0.5,
+                                 batch_size=128, GAMMA=0.99, beta=0.4,
                                  device='cuda'):
     if len(memory) < batch_size:
         return 0
