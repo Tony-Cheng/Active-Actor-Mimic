@@ -383,7 +383,7 @@ def standard_opt_ddqn_ensemble(policy_net, target_net, optimizer, memory,
 
 def standard_opt_ens_priority(policy_net, target_net, optimizer,
                               memory: PrioritizedReplayBuffer, rank_func,
-                              batch_size=128, GAMMA=0.99, beta=0.5,
+                              batch_size=128, GAMMA=0.99, beta=0.4,
                               device='cuda'):
     if len(memory) < batch_size:
         return 0
@@ -419,12 +419,91 @@ def standard_opt_ens_priority(policy_net, target_net, optimizer,
     priorities = rank_func(policy_net, state_batch,
                            batch_size=batch_size, device=device)
 
-    priorities += torch.abs(torch.min(priorities)) + 1e-8
-    priorities /= torch.max(priorities)
+    priorities = (F.relu(priorities) + 1e-5).tolist()
 
     memory.update_priorities(idxs, priorities)
 
     return total_loss.detach() / policy_net.get_num_ensembles()
+
+
+def standard_optimization_priority_td(policy_net, target_net, optimizer,
+                                      memory, batch_size=128, GAMMA=0.99,
+                                      beta=0.7, device='cuda'):
+
+    data = memory.sample(batch_size, beta)
+
+    state_batch = torch.FloatTensor(data[0]).to(device)
+    action_batch = torch.from_numpy(data[1]).to(device).unsqueeze(1)
+    reward_batch = torch.FloatTensor(data[2]).to(device).unsqueeze(1)
+    n_state_batch = torch.FloatTensor(data[3]).to(device)
+    done_batch = torch.FloatTensor(data[4]).to(device).unsqueeze(1)
+    idxs = data[6]
+
+    q = policy_net(state_batch).gather(1, action_batch)
+    nq = target_net(n_state_batch).max(1)[0].detach()
+
+    # Compute the expected Q values
+    expected_state_action_values = (
+        nq * GAMMA)*(1.-done_batch[:, 0]) + reward_batch[:, 0]
+
+    # Compute Huber loss
+    loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))
+
+    # Optimize the model
+    optimizer.zero_grad()
+    loss.backward()
+    for param in policy_net.parameters():
+        param.grad.data.clamp_(-1, 1)
+    optimizer.step()
+
+    priorities = torch.abs(q - expected_state_action_values.unsqueeze(1))
+    priorities = (priorities + 1e-7).squeeze(1).tolist()
+
+    memory.update_priorities(idxs, priorities)
+
+    return loss.detach()
+
+
+def std_opt_priority_td_V2(policy_net, target_net, optimizer,
+                           memory, batch_size=128, GAMMA=0.99,
+                           device='cuda'):
+
+    data, idxs, weights = memory.sample(batch_size)
+
+    state_batch, action_batch, reward_batch, n_state_batch, done_batch = zip(
+        *data)
+
+    state_batch = torch.stack(state_batch).to(device)
+    batch_len = state_batch.size(0)
+    action_batch = torch.tensor(action_batch).to(device).view(batch_len, 1)
+    reward_batch = torch.FloatTensor(
+        reward_batch).to(device).view(batch_len, 1)
+    n_state_batch = torch.stack(n_state_batch).to(device)
+    done_batch = torch.FloatTensor(done_batch).to(device).view(batch_len, 1)
+
+    q = policy_net(state_batch).gather(1, action_batch)
+    nq = target_net(n_state_batch).max(1)[0].detach()
+
+    # Compute the expected Q values
+    expected_state_action_values = (
+        nq * GAMMA)*(1.-done_batch[:, 0]) + reward_batch[:, 0]
+
+    # Compute Huber loss
+    loss = F.smooth_l1_loss(q, expected_state_action_values.unsqueeze(1))
+
+    # Optimize the model
+    optimizer.zero_grad()
+    loss.backward()
+    for param in policy_net.parameters():
+        param.grad.data.clamp_(-1, 1)
+    optimizer.step()
+
+    priorities = (q - expected_state_action_values.unsqueeze(1)).detach()
+    priorities = priorities.squeeze().abs().cpu().numpy().tolist()
+
+    memory.update_priorities(idxs, priorities)
+
+    return loss.detach()
 
 
 def standard_opt_ens_priority_td(policy_net, target_net, optimizer,
