@@ -3,6 +3,8 @@ from torch.distributions.dirichlet import Dirichlet
 from torch.distributions.normal import Normal
 from torch.distributions.multinomial import Multinomial
 import random
+import numpy as np
+from scipy.stats import norm
 
 
 class UniformActionSelector(object):
@@ -256,3 +258,100 @@ class MeanActionSelector(object):
                              device='cpu', dtype=torch.long).numpy()[0].item()
 
         return a, self._eps, action_mean
+
+
+class MaxVarianceActionSelector(object):
+    def __init__(self, policy_net, INITIAL_EPSILON, FINAL_EPSILON, EPS_DECAY,
+                 n_actions, device):
+        self._eps = INITIAL_EPSILON
+        self._FINAL_EPSILON = FINAL_EPSILON
+        self._INITIAL_EPSILON = INITIAL_EPSILON
+        self._policy_net = policy_net
+        self._EPS_DECAY = EPS_DECAY
+        self._n_actions = n_actions
+        self._device = device
+
+    def select_action(self, state, training=True):
+        sample = random.random()
+        if training:
+            self._eps -= (self._INITIAL_EPSILON -
+                          self._FINAL_EPSILON)/self._EPS_DECAY
+            self._eps = max(self._eps, self._FINAL_EPSILON)
+        action_mean = None
+        if sample > self._eps:
+            with torch.no_grad():
+                q_vals = torch.zeros((self._policy_net.get_num_ensembles(),
+                                      self._n_actions))
+                state = state.to(self._device)
+                for i in range(self._policy_net.get_num_ensembles()):
+                    q_vals[i, :] = self._policy_net(
+                        state, ens_num=i).to('cpu').squeeze(0)
+                action_var = torch.var(q_vals, 0)
+                a = action_var.argmax().item()
+        else:
+            a = torch.tensor([random.randrange(self._n_actions)],
+                             device='cpu', dtype=torch.long).numpy()[0].item()
+
+        return a, self._eps
+
+
+class ActiveActionSelector(object):
+    def __init__(self, INITIAL_EPSILON, FINAL_EPSILON, policy_net, expert_net,
+                 EPS_DECAY, n_actions, rank_func, device):
+        self._eps = INITIAL_EPSILON
+        self._FINAL_EPSILON = FINAL_EPSILON
+        self._INITIAL_EPSILON = INITIAL_EPSILON
+        self._policy_net = policy_net
+        self._EPS_DECAY = EPS_DECAY
+        self._n_actions = n_actions
+        self._device = device
+        self._rank_func = rank_func
+        self._expert_net = expert_net
+        self._rating_max_len = 10000
+        self._ratings = np.zeros((self._rating_max_len))
+        self._rating_len = 0
+        self._rating_pos = 0
+        self.use_expert = False
+        self.cur_expert_step = 0
+        self.max_expert_step = 10
+
+    def select_action(self, state, training=True):
+        if training:
+            self._eps -= (self._INITIAL_EPSILON -
+                          self._FINAL_EPSILON)/self._EPS_DECAY
+            self._eps = max(self._eps, self._FINAL_EPSILON)
+
+        rank_val = self._rank_func(
+            self._policy_net, state, batch_size=1, device=self._device).item()
+        if self._rating_len >= 1000:
+            mean = np.mean(self._ratings[:self._rating_len])
+            var = np.var(self._ratings[:self._rating_len])
+            norm_rank_val = (rank_val - mean) / np.sqrt(var)
+            prob = norm.cdf(norm_rank_val)
+        if self._rating_len < 1000:
+            with torch.no_grad():
+                a = self._expert_net(state.to(self._device)).max(1)[
+                    1].cpu().view(1, 1)
+        elif self.use_expert:
+            self.use_expert = not (
+                self.cur_expert_step == self.max_expert_step - 1)
+            self.cur_expert_step = (
+                self.cur_expert_step + 1) % self.max_expert_step
+            with torch.no_grad():
+                a = self._expert_net(state.to(self._device)).max(1)[
+                    1].cpu().view(1, 1)
+        elif prob < self._eps:
+            self.use_expert = True
+            with torch.no_grad():
+                a = self._expert_net(state.to(self._device)).max(1)[
+                    1].cpu().view(1, 1)
+        else:
+            with torch.no_grad():
+                a = self._policy_net(state.to(self._device)).max(1)[
+                    1].cpu().view(1, 1)
+
+        self._ratings[self._rating_pos] = rank_val
+        if self._rating_len < self._rating_max_len:
+            self._rating_len += 1
+        self._rating_pos = (self._rating_pos + 1) % self._rating_max_len
+        return a.numpy()[0, 0].item(), self._eps

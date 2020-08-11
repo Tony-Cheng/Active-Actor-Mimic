@@ -164,5 +164,187 @@ class ENS_DQN_Large(ENS_DQN):
             self.ensembles.append(new_net)
 
 
+class Bootstrap_DQN(nn.Module):
+    def __init__(self, n_actions=4, num_networks=5):
+        super(Bootstrap_DQN, self).__init__()
+        self.conv1 = nn.Conv2d(4, 32, kernel_size=8, stride=4, bias=False)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, bias=False)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, bias=False)
+        self.fc1 = nn.Linear(64*7*7, 512)
+        self.bootstrap = nn.ModuleList(
+            [nn.Linear(512, n_actions) for i in range(num_networks)])
+        self.num_networks = num_networks
+
+    def init_weights(self, m):
+        if type(m) == nn.Linear:
+            torch.nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+            m.bias.data.fill_(0.0)
+
+        if type(m) == nn.Conv2d:
+            torch.nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+            # m.bias.data.fill_(0.1)
+
+    def forward(self, x, training=False):
+        x = x.float() / 255.
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.fc1(x.view(x.size(0), -1)))
+
+        if training:
+            return [self.bootstrap[i](x) for i in range(len(self.bootstrap))]
+        else:
+            q_vals = 0
+            for i in range(len(self.bootstrap)):
+                q_vals += self.bootstrap[i](x)
+            return q_vals / len(self.bootstrap)
+
+
+class SmallSharingBootstrap_DQN(nn.Module):
+    def __init__(self, n_actions=4, num_networks=5):
+        super(SmallSharingBootstrap_DQN, self).__init__()
+        self.conv1 = nn.Conv2d(4, 32, kernel_size=8, stride=4, bias=False)
+        self.conv2 = nn.ModuleList(
+            [nn.Conv2d(32, 64, kernel_size=4, stride=2, bias=False)
+             for i in range(num_networks)])
+        self.conv3 = nn.ModuleList(
+            [nn.Conv2d(64, 64, kernel_size=3, stride=1, bias=False)
+             for i in range(num_networks)])
+        self.fc1 = nn.ModuleList(
+            [nn.Linear(64*7*7, 512) for i in range(num_networks)])
+        self.bootstrap = nn.ModuleList(
+            [nn.Linear(512, n_actions) for i in range(num_networks)])
+        self.num_networks = num_networks
+
+    def init_weights(self, m):
+        if type(m) == nn.Linear:
+            torch.nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+            m.bias.data.fill_(0.0)
+
+        if type(m) == nn.Conv2d:
+            torch.nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+            # m.bias.data.fill_(0.1)
+
+    def forward(self, x, training=False):
+        x = x.float() / 255.
+        x = F.relu(self.conv1(x))
+        x = [F.relu(self.conv2[i](x)) for i in range(len(self.bootstrap))]
+        x = [F.relu(self.conv3[i](x[i])) for i in range(len(self.bootstrap))]
+        x = [F.relu(self.fc1[i](x[i].view(x[i].size(0), -1)))
+             for i in range(len(self.bootstrap))]
+
+        if training:
+            return [self.bootstrap[i](x[i]) for i in range(len(self.bootstrap))]
+        else:
+            q_vals = 0
+            for i in range(len(self.bootstrap)):
+                q_vals += self.bootstrap[i](x[i])
+            return q_vals / len(self.bootstrap)
+
+
+class IndependentBootstrap_DQN(nn.Module):
+    def __init__(self, n_actions=4, num_networks=5):
+        super(IndependentBootstrap_DQN, self).__init__()
+        self.conv1 = nn.ModuleList(
+            [nn.Conv2d(4, 32, kernel_size=8, stride=4, bias=False)
+             for i in range(num_networks)])
+        self.conv2 = nn.ModuleList(
+            [nn.Conv2d(32, 64, kernel_size=4, stride=2, bias=False)
+             for i in range(num_networks)])
+        self.conv3 = nn.ModuleList(
+            [nn.Conv2d(64, 64, kernel_size=3, stride=1, bias=False)
+             for i in range(num_networks)])
+        self.fc1 = nn.ModuleList(
+            [nn.Linear(64*7*7, 512) for i in range(num_networks)])
+        self.bootstrap = nn.ModuleList(
+            [nn.Linear(512, n_actions) for i in range(num_networks)])
+        self.num_networks = num_networks
+
+    def init_weights(self, m):
+        if type(m) == nn.Linear:
+            torch.nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+            m.bias.data.fill_(0.0)
+
+        if type(m) == nn.Conv2d:
+            torch.nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+            # m.bias.data.fill_(0.1)
+
+    def forward(self, x, training=False):
+        x = x.float() / 255.
+        x = [F.relu(self.conv1[i](x)) for i in range(len(self.bootstrap))]
+        x = [F.relu(self.conv2[i](x[i])) for i in range(len(self.bootstrap))]
+        x = [F.relu(self.conv3[i](x[i])) for i in range(len(self.bootstrap))]
+        x = [F.relu(self.fc1[i](x[i].view(x[i].size(0), -1)))
+             for i in range(len(self.bootstrap))]
+
+        if training:
+            return [self.bootstrap[i](x[i]) for i in range(len(self.bootstrap))]
+        else:
+            q_vals = 0
+            for i in range(len(self.bootstrap)):
+                q_vals += self.bootstrap[i](x[i])
+            return q_vals / len(self.bootstrap)
+
+
+class ENS_DQN_V2(nn.Module):
+    def __init__(self, n_actions=4, num_networks=5):
+        super(ENS_DQN_V2, self).__init__()
+        self.ensembles = []
+        self.num_networks = num_networks
+
+        for _ in range(num_networks):
+            new_net = DQN(n_actions)
+            self.ensembles.append(new_net)
+
+    def init_weights(self, m):
+        if type(m) == list:
+            for net in m:
+                net.apply(net.init_weights)
+
+    def to(self, device):
+        for i in range(len(self.ensembles)):
+            self.ensembles[i].to(device)
+        return self
+
+    def parameters(self):
+        params = []
+        for i in range(len(self.ensembles)):
+            params += self.ensembles[i].parameters()
+        return params
+
+    def forward(self, x, tau=0.1, ens_num=None, last_layer=False,
+                q_value=False):
+        if ens_num is None:
+            prediction = 0
+            for i in range(len(self.ensembles)):
+                prediction += to_policy(self.ensembles[i](x), tau=tau)
+            return prediction / len(self.ensembles)
+        elif q_value:
+            prediction = 0
+            for i in range(len(self.ensembles)):
+                prediction += (self.ensembles[i](x))
+            return prediction / len(self.ensembles)
+        else:
+            net = self.ensembles[ens_num]
+            return net(x, last_layer=last_layer)
+
+    def get_num_ensembles(self):
+        return len(self.ensembles)
+
+    def state_dict(self):
+        dicts = []
+        for i in range(len(self.ensembles)):
+            dicts.append(self.ensembles[i].state_dict())
+        return dicts
+
+    def load_state_dict(self, dicts):
+        for i in range(len(dicts)):
+            self.ensembles[i].load_state_dict(dicts[i])
+
+    def eval(self):
+        for i in range(len(self.ensembles)):
+            self.ensembles[i].eval()
+
+
 def to_policy(q_values, tau=0.1):
     return F.softmax(q_values / tau, dim=1)
