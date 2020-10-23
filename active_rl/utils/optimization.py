@@ -43,6 +43,43 @@ def standard_optimization(policy_net, target_net, optimizer, memory, batch_size=
     return loss.detach()
 
 
+def standard_optimization_value_network(value_net, target_net, optimizer, memory, batch_size=128,
+                                        GAMMA=0.99, training=True, device='cuda'):
+    if not training:
+        return None
+
+    if len(memory) < batch_size:
+        return 0
+
+    state_batch, action_batch, reward_batch, n_state_batch, done_batch = memory.sample(
+        batch_size)
+
+    state_batch = state_batch.to(device)
+    action_batch = action_batch.to(device)
+    reward_batch = reward_batch.to(device)
+    n_state_batch = n_state_batch.to(device)
+    done_batch = done_batch.to(device)
+
+    v = value_net(state_batch)
+    nv = target_net(n_state_batch).squeeze().detach()
+
+    # Compute the expected Q values
+    expected_state_action_values = (
+        nv * GAMMA)*(1.-done_batch[:, 0]) + reward_batch[:, 0]
+
+    # Compute Huber loss
+    loss = F.smooth_l1_loss(v, expected_state_action_values.unsqueeze(1))
+
+    # Optimize the model
+    optimizer.zero_grad()
+    loss.backward()
+    for param in value_net.parameters():
+        param.grad.data.clamp_(-1, 1)
+    optimizer.step()
+
+    return loss.detach()
+
+
 def standard_ddqn_optimization(policy_net, target_net, optimizer, memory,
                                batch_size=128, GAMMA=0.99, training=True,
                                device='cuda'):
@@ -84,16 +121,17 @@ def standard_ddqn_optimization(policy_net, target_net, optimizer, memory,
 
 
 def AMN_optimization(AMN_net, expert_net, optimizer, memory, feature_regression=False, tau=0.1,
-                     beta=0.01, batch_size=256, GAMMA=0.99, training=True):
+                     beta=0.01, batch_size=256, GAMMA=0.99, training=True, device='cuda'):
     """
     Apply the standard procedure to deep Q network.
     """
-    if not training:
+    if not training or len(memory) < batch_size:
         return None
 
     state_batch, _, _, _, _ = memory.sample(batch_size)
+    state_batch = state_batch.to(device)
 
-    if feature_regression == True:
+    if feature_regression:
         AMN_q_value, AMN_last_layer = AMN_net(state_batch, last_layer=True)
         expert_q_value, expert_last_layer = expert_net(
             state_batch, last_layer=True)
@@ -123,7 +161,7 @@ def _AMN_optimization(AMN_net, expert_net, optimizer, state_batch, feature_regre
     if not training:
         return None
 
-    if feature_regression == True:
+    if feature_regression:
         AMN_q_value, AMN_last_layer = AMN_net(state_batch, last_layer=True)
         expert_q_value, expert_last_layer = expert_net(
             state_batch, last_layer=True)
@@ -176,7 +214,7 @@ def _AMN_optimization_ENS(AMN_net, expert_net, optimizer, state_batch, ens_num=N
     if not training:
         return None
 
-    if feature_regression == True:
+    if feature_regression is True:
         AMN_q_value, AMN_last_layer = AMN_net(state_batch, last_layer=True)
         expert_q_value, expert_last_layer = expert_net(
             state_batch, last_layer=True)

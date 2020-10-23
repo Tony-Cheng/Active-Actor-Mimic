@@ -2,6 +2,14 @@ import torch
 import torch.nn.functional as F
 
 
+def BALD(prob_N_K_C):
+    prob_N_C = torch.mean(prob_N_K_C, dim=1)
+    entropy = torch.sum(prob_N_C * torch.log(prob_N_C + 1e-7), dim=1)
+    cond_entropy = torch.mean(
+        torch.sum(prob_N_K_C * torch.log(prob_N_K_C + 1e-7), dim=2), dim=1)
+    return entropy - cond_entropy
+
+
 def mc_entropy(policy_net, states, tau=0.1, batch_size=128, num_iters=10, device='cuda'):
     entropy = torch.zeros((states.shape[0]), dtype=torch.float)
     for i in range(0, states.shape[0], batch_size):
@@ -83,7 +91,7 @@ def ens_entropy(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
             batch_len = batch_size
         else:
             batch_len = states.shape[0] - i
-        next_states = states[i: i + batch_len, :, :].to(device)
+        next_states = states[i: i + batch_len, :4, :].to(device)
         with torch.no_grad():
             q_values = policy_net(next_states, ens_num=0)
             policy = to_policy(q_values, tau=tau)
@@ -106,7 +114,7 @@ def ens_BALD(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
             batch_len = batch_size
         else:
             batch_len = states.shape[0] - i
-        next_states = states[i: i + batch_len, :, :].to(device)
+        next_states = states[i: i + batch_len, :4].to(device)
         with torch.no_grad():
             q_values = policy_net(next_states, ens_num=0)
             policy = to_policy(q_values, tau=tau)
@@ -120,6 +128,34 @@ def ens_BALD(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
         current_cond_entropy /= policy_net.get_num_ensembles()
         cond_entropy[i: i + batch_len] = current_cond_entropy.to('cpu')
     return entropy + cond_entropy
+
+
+def ens_value(value_net, states, batch_size=128, device='cuda'):
+    values = torch.empty((states.shape[0]))
+    num_states = states.shape[0]
+    for i in range(0, num_states, batch_size):
+        next_batch_size = batch_size
+        if (num_states - i < batch_size):
+            next_batch_size = num_states - i
+        next_states = states[i:i + next_batch_size, :4].to(device)
+        with torch.no_grad():
+            values[i:i + next_batch_size] = value_net(next_states).squeeze()
+    return values
+
+
+def ens_value_td(value_net, states, batch_size=128, device='cuda'):
+    td_values = torch.empty((states.shape[0]))
+    num_states = states.shape[0]
+    for i in range(0, num_states, batch_size):
+        next_batch_size = batch_size
+        if (num_states - i < batch_size):
+            next_batch_size = num_states - i
+        cur_states = states[i:i + next_batch_size, :4].to(device)
+        next_states = states[i:i + next_batch_size, 1:].to(device)
+        with torch.no_grad():
+            td_values[i:i + next_batch_size] = torch.abs(value_net(next_states).squeeze() -
+                                                         value_net(cur_states).squeeze())
+    return td_values
 
 
 def ens_BALD_prob(policy_net, obs, tau=0.1, batch_size=128, device='cuda'):
