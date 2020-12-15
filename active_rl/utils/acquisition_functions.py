@@ -130,6 +130,14 @@ def ens_BALD(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
     return entropy + cond_entropy
 
 
+def ens_normalized_BALD(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
+    BALD_vals = ens_BALD(policy_net, states, tau=0.1,
+                         batch_size=128, device=device)
+    min_BALD = torch.min(BALD_vals)
+    max_BALD = torch.max(BALD_vals)
+    return (BALD_vals + min_BALD) / (max_BALD + min_BALD + 1e-9)
+
+
 def ens_value(value_net, states, batch_size=128, device='cuda'):
     values = torch.empty((states.shape[0]))
     num_states = states.shape[0]
@@ -141,6 +149,26 @@ def ens_value(value_net, states, batch_size=128, device='cuda'):
         with torch.no_grad():
             values[i:i + next_batch_size] = value_net(next_states).squeeze()
     return values
+
+
+def dqn_normalized_value(value_net, states, batch_size=128, device='cuda'):
+    values = torch.empty((states.shape[0]))
+    num_states = states.shape[0]
+    with torch.no_grad():
+        for i in range(0, num_states, batch_size):
+            next_batch_size = batch_size
+            if (num_states - i < batch_size):
+                next_batch_size = num_states - i
+            next_states = states[i:i + next_batch_size, :4].to(device)
+            values[i:i + next_batch_size] = value_net(next_states).max(dim=1)[0]
+    min_value = torch.min(values)
+    max_value = torch.max(values)
+    return (values + min_value) / (min_value + max_value + 1e-9)
+
+
+def mixed_BALD_value(AMN_net, value_net, AMN_weight, batch_size, device):
+    return lambda states: AMN_weight * ens_normalized_BALD(AMN_net, states, batch_size=batch_size, device=device) + \
+        (1 - AMN_weight) * dqn_normalized_value(value_net, states, batch_size=batch_size, device=device)
 
 
 def ens_value_td(value_net, states, batch_size=128, device='cuda'):

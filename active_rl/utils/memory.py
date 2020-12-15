@@ -139,6 +139,65 @@ class RankedReplayMemory(object):
         return self.size
 
 
+class GenericRankedReplayMemory(object):
+    def __init__(self, capacity, state_shape, n_actions, rank_func):
+        c, h, w = state_shape
+        self.capacity = capacity
+        self.m_states = torch.zeros((capacity, c, h, w), dtype=torch.uint8)
+        self.m_actions = torch.zeros((capacity, 1), dtype=torch.long)
+        self.m_rewards = torch.zeros((capacity, 1), dtype=torch.int8)
+        self.m_dones = torch.zeros((capacity, 1), dtype=torch.bool)
+        self.position = 0
+        self.size = 0
+        self.rank_func = rank_func
+
+    def push(self, state, action, reward, done):
+        """Saves a transition."""
+        self.m_states[self.position] = state  # 5,84,84
+        self.m_actions[self.position, 0] = action
+        self.m_rewards[self.position, 0] = reward
+        self.m_dones[self.position, 0] = done
+        self.position = (self.position + 1) % self.capacity
+        self.size = max(self.size, self.position)
+
+    def label_percentage(self, percentage):
+        _, i = torch.sort(self.rank_func(self.m_states[: self.size, :4]),
+                          descending=True)
+        i = i[: int(percentage * self.size)]
+        i = i[torch.randperm(i.shape[0])]
+        bs = self.m_states[i]
+        ba = self.m_actions[i]
+        br = self.m_rewards[i].float()
+        bd = self.m_dones[i].float()
+        return bs, ba, br, bd
+
+    def __len__(self):
+        return self.size
+
+
+class GenericLabelledReplayMemory():
+    def __init__(self, rank_buffer, labelled_buffer):
+        self.labeled_buffer = labelled_buffer
+        self.rank_buffer = rank_buffer
+
+    def push(self, state, action, reward, done):
+        """Saves a transition."""
+        self.rank_buffer.push(state, action, reward, done)
+
+    def label_sample_percentage(self, percentage):
+        bs, ba, br, bd = self.rank_buffer.label_percentage(percentage)
+        for i in range(bs.shape[0]):
+            self.labeled_buffer.push(bs[i], ba[i, 0], br[i, 0], bd[i, 0])
+        return bs.shape[0]
+
+    def sample(self, batch_size):
+        bs, ba, br, bns, bd = self.labeled_buffer.sample(batch_size=batch_size)
+        return bs, ba, br, bns, bd
+
+    def __len__(self):
+        return len(self.labeled_buffer)
+
+
 class _RankedReplayMemory(object):
     def __init__(self, capacity, state_shape, n_actions, rank_func, AMN_net,
                  device='cuda'):
@@ -582,11 +641,13 @@ class BatchBALDReplayMemoryForEnsDQN():
                     next_batch_size = num_states - j
                 next_states = bs[j:j + next_batch_size, :4].to(self.device)
                 with torch.no_grad():
-                    out[j:j + next_batch_size, i,
-                        :] = self.AMN_net(next_states, ens_num=i)
+                    out[j:j + next_batch_size,
+                        i] = self.AMN_net(next_states, ens_num=i)
         prob = (out / self.tau).softmax(dim=2)
+
         candidates = get_batchbald_batch(
             prob, self.batch_label_size, num_batch_samples, device=self.device)
+
         for indice in candidates.indices:
             self.labelled_buffer.push(
                 bs[indice], ba[indice], br[indice], bd[indice])
