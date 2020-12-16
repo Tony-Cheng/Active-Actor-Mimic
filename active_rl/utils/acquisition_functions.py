@@ -135,7 +135,7 @@ def ens_normalized_BALD(policy_net, states, tau=0.1, batch_size=128, device='cud
                          batch_size=128, device=device)
     min_BALD = torch.min(BALD_vals)
     max_BALD = torch.max(BALD_vals)
-    return (BALD_vals + min_BALD) / (max_BALD + min_BALD + 1e-9)
+    return (BALD_vals - min_BALD) / (max_BALD - min_BALD + 1e-9)
 
 
 def ens_value(value_net, states, batch_size=128, device='cuda'):
@@ -163,7 +163,7 @@ def dqn_normalized_value(value_net, states, batch_size=128, device='cuda'):
             values[i:i + next_batch_size] = value_net(next_states).max(dim=1)[0]
     min_value = torch.min(values)
     max_value = torch.max(values)
-    return (values + min_value) / (min_value + max_value + 1e-9)
+    return (values - min_value) / (max_value - min_value + 1e-9)
 
 
 def mixed_BALD_value(AMN_net, value_net, AMN_weight, batch_size, device):
