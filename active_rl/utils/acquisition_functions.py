@@ -160,7 +160,8 @@ def dqn_normalized_value(value_net, states, batch_size=128, device='cuda'):
             if (num_states - i < batch_size):
                 next_batch_size = num_states - i
             next_states = states[i:i + next_batch_size, :4].to(device)
-            values[i:i + next_batch_size] = value_net(next_states).max(dim=1)[0]
+            values[i:i +
+                   next_batch_size] = value_net(next_states).max(dim=1)[0]
     min_value = torch.min(values)
     max_value = torch.max(values)
     return (values - min_value) / (max_value - min_value + 1e-9)
@@ -168,7 +169,37 @@ def dqn_normalized_value(value_net, states, batch_size=128, device='cuda'):
 
 def mixed_BALD_value(AMN_net, value_net, AMN_weight, batch_size, device):
     return lambda states: AMN_weight * ens_normalized_BALD(AMN_net, states, batch_size=batch_size, device=device) + \
-        (1 - AMN_weight) * dqn_normalized_value(value_net, states, batch_size=batch_size, device=device)
+        (1 - AMN_weight) * dqn_normalized_value(value_net,
+                                                states, batch_size=batch_size, device=device)
+
+
+def dqn_policy_entropy(value_net, states, tau, batch_size, device):
+    entropy = torch.zeros((states.shape[0]), dtype=torch.float)
+    for i in range(0, states.shape[0], batch_size):
+        if i + batch_size < states.shape[0]:
+            batch_len = batch_size
+        else:
+            batch_len = states.shape[0] - i
+        next_states = states[i: i + batch_len, :4, :].to(device)
+        with torch.no_grad():
+            q_values = value_net(next_states)
+            policy = to_policy(q_values, tau=tau)
+        current_entropy = - torch.sum(policy * torch.log(policy + 1e-9), 1)
+        entropy[i: i + batch_len] = current_entropy.cpu()
+    return entropy
+
+
+def dqn_normalized_policy_entropy(value_net, states, tau, batch_size, device):
+    entropy = dqn_policy_entropy(value_net, states, tau, batch_size, device)
+    min_entroy = torch.min(entropy)
+    max_entropy = torch.max(entropy)
+    return (entropy - min_entroy) / (max_entropy - min_entroy + 1e-9)
+
+
+def mixed_BALD_entropy(AMN_net, value_net, AMN_weight, tau_value_net, batch_size, device):
+    return lambda states: AMN_weight * ens_normalized_BALD(AMN_net, states, batch_size=batch_size, device=device) + \
+        (1 - AMN_weight) * (1 - dqn_policy_entropy(value_net,
+                                                   states, tau_value_net, batch_size=batch_size, device=device))
 
 
 def ens_value_td(value_net, states, batch_size=128, device='cuda'):
