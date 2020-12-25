@@ -202,6 +202,34 @@ def mixed_BALD_entropy(AMN_net, value_net, AMN_weight, tau_value_net, batch_size
                                                    states, tau_value_net, batch_size=batch_size, device=device))
 
 
+def AMN_Expert_BALD(AMN_net, expert_net, states, tau, batch_size, device):
+    entropy = torch.zeros((states.shape[0]), dtype=torch.float)
+    cond_entropy = torch.zeros((states.shape[0]), dtype=torch.float)
+    for i in range(0, states.shape[0], batch_size):
+        if i + batch_size < states.shape[0]:
+            batch_len = batch_size
+        else:
+            batch_len = states.shape[0] - i
+        next_states = states[i: i + batch_len, :4].to(device)
+        with torch.no_grad():
+            AMN_q_values = AMN_net(next_states)
+            AMN_policy = to_policy(AMN_q_values, tau=tau)
+            expert_q_values = expert_net(next_states)
+            expert_policy = to_policy(expert_q_values)
+            current_cond_entropy = -(torch.sum(
+                AMN_policy * torch.log(AMN_policy + 1e-9), 1) + torch.sum(expert_policy * torch.log(expert_policy + 1e-9), 1)) / 2
+            average_policy = (AMN_policy + expert_policy) / 2
+            current_entropy = - \
+                torch.sum(average_policy * torch.log(average_policy + 1e-9), 1)
+        cond_entropy[i: i + batch_len] = current_cond_entropy.cpu()
+        entropy[i: i + batch_len] = current_entropy.cpu()
+    return entropy - cond_entropy
+
+
+def AMN_Expert_BALD_wrapper(AMN_net, expert_net, tau, batch_size, device):
+    return lambda states: AMN_Expert_BALD(AMN_net, expert_net, states, tau, batch_size, device)
+
+
 def ens_value_td(value_net, states, batch_size=128, device='cuda'):
     td_values = torch.empty((states.shape[0]))
     num_states = states.shape[0]

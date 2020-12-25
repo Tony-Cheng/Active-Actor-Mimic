@@ -222,9 +222,9 @@ class _RankedReplayMemory(object):
         self.position = (self.position + 1) % self.capacity
         self.size = max(self.size, self.position)
 
-    def sample(self, percentage=0.1):
+    def sample(self, percentage=0.1, batch_size=64):
         _, i = torch.sort(self.rank_func(
-            self.AMN_net, self.m_states[: self.size, :4], device=self.device),
+            self.AMN_net, self.m_states[: self.size, :4], batch_size=batch_size, device=self.device),
             descending=True)
         i = i[: int(percentage * self.size)]
         i = i[torch.randperm(i.shape[0])]
@@ -253,14 +253,14 @@ class LabelledReplayMemory():
         """Saves a transition."""
         self.rank_buffer.push(state, action, reward, done)
 
-    def label_sample(self, percentage=0.1, batch_size=None):
+    def label_sample(self, percentage=0.1, batch_size=64):
         bs, ba, br, bd = self.rank_buffer.sample(
             percentage=percentage, batch_size=batch_size)
         for i in range(bs.shape[0]):
             self.labeled_buffer.push(bs[i], ba[i, 0], br[i, 0], bd[i, 0])
         return bs.shape[0]
 
-    def sample(self, batch_size=None):
+    def sample(self, batch_size=64):
         bs, ba, br, bns, bd = self.labeled_buffer.sample(batch_size=batch_size)
         return bs, ba, br, bns, bd
 
