@@ -566,11 +566,10 @@ class RandomReplayMemoryForMcDropout():
 
 
 class BALDReplayMemoryForEnsDQN():
-    def __init__(self, capacity_not_labelled, capacity_labelled, batch_label_size, state_shape,
+    def __init__(self, capacity_not_labelled, capacity_labelled, state_shape,
                  n_actions, AMN_net, tau=0.1, device='cuda'):
         self.device = device
         self.n_actions = n_actions
-        self.batch_label_size = batch_label_size
         self.AMN_net = AMN_net
         self.unlabelled_buffer = _ReplayMemory(
             capacity_not_labelled, state_shape, n_actions, device)
@@ -581,24 +580,24 @@ class BALDReplayMemoryForEnsDQN():
     def push(self, state, action, reward, done):
         self.unlabelled_buffer.push(state, action, reward, done)
 
-    def label_sample(self, batch_size=64):
+    def label_sample(self, batch_label_size, num_samples, batch_size=64):
         bs, ba, br, bd = self.unlabelled_buffer.sample()
         num_states = bs.shape[0]
         out = torch.empty(
             (num_states, self.AMN_net.get_num_ensembles(), self.n_actions))
-        for i in range(self.AMN_net.get_num_ensembles()):
-            for j in range(0, num_states, batch_size):
-                next_batch_size = batch_size
-                if (num_states - j < batch_size):
-                    next_batch_size = num_states - j
-                next_states = bs[j:j + next_batch_size, :4].to(self.device)
+        for j in range(0, num_states, batch_size):
+            next_batch_size = batch_size
+            if (num_states - j < batch_size):
+                next_batch_size = num_states - j
+            next_states = bs[j:j + next_batch_size, :4].to(self.device)
+            for i in range(self.AMN_net.get_num_ensembles()):
                 with torch.no_grad():
-                    out[j:j + next_batch_size,
-                        i] = self.AMN_net(next_states, ens_num=i)
-        prob = (out / self.tau).softmax(dim=2)
+                    out[j:j + next_batch_size, i,
+                        :] = self.AMN_net(next_states, ens_num=i).cpu()
+        prob = torch.log((out / self.tau).softmax(dim=2))
 
         candidates = get_bald_batch(
-            prob, self.batch_label_size, device=self.device)
+            prob, batch_label_size, num_samples, device=self.device)
 
         for indice in candidates.indices:
             self.labelled_buffer.push(
@@ -614,11 +613,10 @@ class BALDReplayMemoryForEnsDQN():
 
 
 class BatchBALDReplayMemoryForEnsDQN():
-    def __init__(self, capacity_not_labelled, capacity_labelled, batch_label_size, state_shape,
+    def __init__(self, capacity_not_labelled, capacity_labelled, state_shape,
                  n_actions, AMN_net, tau=0.1, device='cuda'):
         self.device = device
         self.n_actions = n_actions
-        self.batch_label_size = batch_label_size
         self.AMN_net = AMN_net
         self.unlabelled_buffer = _ReplayMemory(
             capacity_not_labelled, state_shape, n_actions, device)
@@ -629,28 +627,31 @@ class BatchBALDReplayMemoryForEnsDQN():
     def push(self, state, action, reward, done):
         self.unlabelled_buffer.push(state, action, reward, done)
 
-    def label_sample(self, batch_size=64, num_batch_samples=100):
+    def label_sample(self, batch_label_size, num_samples, batch_size=64):
         bs, ba, br, bd = self.unlabelled_buffer.sample()
         num_states = bs.shape[0]
         out = torch.empty(
             (num_states, self.AMN_net.get_num_ensembles(), self.n_actions))
-        for i in range(self.AMN_net.get_num_ensembles()):
-            for j in range(0, num_states, batch_size):
-                next_batch_size = batch_size
-                if (num_states - j < batch_size):
-                    next_batch_size = num_states - j
-                next_states = bs[j:j + next_batch_size, :4].to(self.device)
+        for j in range(0, num_states, batch_size):
+            next_batch_size = batch_size
+            if (num_states - j < batch_size):
+                next_batch_size = num_states - j
+            next_states = bs[j:j + next_batch_size, :4].to(self.device)
+            for i in range(self.AMN_net.get_num_ensembles()):
                 with torch.no_grad():
-                    out[j:j + next_batch_size,
-                        i] = self.AMN_net(next_states, ens_num=i)
+                    out[j:j + next_batch_size, i,
+                        :] = self.AMN_net(next_states, ens_num=i).cpu()
         prob = (out / self.tau).softmax(dim=2)
 
         candidates = get_batchbald_batch(
-            prob, self.batch_label_size, num_batch_samples, device=self.device)
+            prob, batch_label_size, num_samples, device=self.device)
 
+        num_samples = 0
         for indice in candidates.indices:
             self.labelled_buffer.push(
                 bs[indice], ba[indice], br[indice], bd[indice])
+            num_samples += 1
+        return num_samples
 
     def sample(self, batch_size=None):
         bs, ba, br, bns, bd = self.labelled_buffer.sample(
