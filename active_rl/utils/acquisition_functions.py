@@ -130,6 +130,47 @@ def ens_BALD(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
     return entropy + cond_entropy
 
 
+# def ens_policy_prob(policy_net, states, tau, batch_size, device):
+#     num_states = states.shape[0]
+#     policy_probs = torch.zeros((num_states), dtype=torch.float)
+#     for i in range(num_states, batch_size):
+#         if i + batch_size < states.shape[0]:
+#             batch_len = batch_size
+#         else:
+#             batch_len = states.shape[0] - i
+#         next_states = states[i: i + batch_len, :4].to(device)
+#         policy_prob = 0
+#         for j in range(policy_net.get_num_ensembles()):
+#             with torch.no_grad():
+#                 q_values = policy_net(next_states, ens_num=j)
+#                 policy_prob += to_policy(q_values, tau=tau).cpu()
+#         policy_prob /= policy_net.get_num_ensembles()
+#         policy_probs[i: i + batch_len] = policy_prob
+#     return policy_probs
+
+
+# def ens_BatchBALD_entropy_sample(prob_N_K_C, num_samples, selected_samples):
+#     num_states = prob_N_K_C.shape[0]
+
+
+# def ens_BatchBALD_greedy(policy_net, states, acquisition_size, tau, batch_size, device):
+#     num_states = states.shape[0]
+#     assert num_states >= acquisition_size
+#     entropy = ens_entropy(policy_net, states, tau=tau,
+#                           batch_size=batch_size, device=device)
+#     policy_probs = ens_policy_prob(policy_net, states. tau, batch_size, device)
+#     entropy_sum = 0
+#     policy_prob_prod = 1.0
+#     selected_samples = {}
+#     for _ in range(acquisition_size):
+#         cur_max_BatchBALD = None
+#         cur_max_BatchBALD_index = None
+#         for i in range(num_states):
+#             if i not in selected_samples:
+#                 BatchBALD_entropy = entropy_sum + entropy[i]
+#                 policy = policy_prob_prod * policy_probs[i]
+
+
 def ens_normalized_BALD(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
     BALD_vals = ens_BALD(policy_net, states, tau=0.1,
                          batch_size=128, device=device)

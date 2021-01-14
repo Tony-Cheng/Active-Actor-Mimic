@@ -580,7 +580,7 @@ class BALDReplayMemoryForEnsDQN():
     def push(self, state, action, reward, done):
         self.unlabelled_buffer.push(state, action, reward, done)
 
-    def label_sample(self, batch_label_size, num_samples, batch_size=64):
+    def label_sample(self, batch_label_size, batch_size=64):
         bs, ba, br, bd = self.unlabelled_buffer.sample()
         num_states = bs.shape[0]
         out = torch.empty(
@@ -594,14 +594,17 @@ class BALDReplayMemoryForEnsDQN():
                 with torch.no_grad():
                     out[j:j + next_batch_size, i,
                         :] = self.AMN_net(next_states, ens_num=i).cpu()
-        prob = torch.log((out / self.tau).softmax(dim=2))
+        prob = (out / self.tau).softmax(dim=2)
 
         candidates = get_bald_batch(
-            prob, batch_label_size, num_samples, device=self.device)
+            prob, batch_label_size, device=self.device)
 
+        num_samples = 0
         for indice in candidates.indices:
             self.labelled_buffer.push(
                 bs[indice], ba[indice], br[indice], bd[indice])
+            num_samples += 1
+        return num_samples
 
     def sample(self, batch_size=None):
         bs, ba, br, bns, bd = self.labelled_buffer.sample(
