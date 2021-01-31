@@ -1,6 +1,7 @@
 import torch
 from batchbald_redux.batchbald import get_batchbald_batch, get_bald_batch
 import random
+import pickle
 
 
 class ReplayMemory(object):
@@ -34,6 +35,43 @@ class ReplayMemory(object):
         br = self.m_rewards[i].float()
         bd = self.m_dones[i].float()
         return bs, ba, br, bns, bd
+
+    def __len__(self):
+        return self.size
+
+
+class RecordReplayMemory(object):
+    def __init__(self, capacity, state_shape, n_actions, file_name, device):
+        c, h, w = state_shape
+        self.capacity = capacity
+        self.device = device
+        self.m_states = torch.zeros((capacity, c, h, w), dtype=torch.uint8)
+        self.m_actions = torch.zeros((capacity, 1), dtype=torch.long)
+        self.m_rewards = torch.zeros((capacity, 1), dtype=torch.int8)
+        self.m_dones = torch.zeros((capacity, 1), dtype=torch.bool)
+        self.file_name = file_name
+        self.file_counter = 0
+        self.position = 0
+        self.size = 0
+
+    def push(self, state, action, reward, done):
+        """Saves a transition."""
+        self.m_states[self.position] = state  # 5,84,84
+        self.m_actions[self.position, 0] = action
+        self.m_rewards[self.position, 0] = reward
+        self.m_dones[self.position, 0] = done
+        if self.position + 1 == self.capacity:
+            self.store()
+        self.position = (self.position + 1) % self.capacity
+        self.size = max(self.size, self.position)
+
+    def store(self):
+        file_name = f'{self.file_name}/{self.file_counter}.pkl'
+        file_content = {'states': self.m_states, 'actions': self.m_actions,
+                        'rewards': self.m_rewards, 'dones': self.m_dones}
+        with open(file_name, 'wb+') as file:
+            pickle.dump(file_content, file, pickle.HIGHEST_PROTOCOL)
+        self.file_counter += 1
 
     def __len__(self):
         return self.size
@@ -200,7 +238,7 @@ class GenericLabelledReplayMemory():
 
 class _RankedReplayMemory(object):
     def __init__(self, capacity, state_shape, n_actions, rank_func, AMN_net,
-                 device='cuda'):
+                 tau, device='cuda'):
         c, h, w = state_shape
         self.capacity = capacity
         self.device = device
@@ -241,13 +279,13 @@ class _RankedReplayMemory(object):
 
 class LabelledReplayMemory():
     def __init__(self, capacity_not_labelled, capacity_labelled, state_shape,
-                 n_actions, rank_func, AMN_net, device='cuda'):
+                 n_actions, rank_func, AMN_net, tau=0.1, device='cuda'):
         self.device = device
         self.labeled_buffer = ReplayMemory(
             capacity_labelled, state_shape, n_actions, device)
         self.rank_buffer = _RankedReplayMemory(
             capacity_not_labelled, state_shape, n_actions, rank_func, AMN_net,
-            device=device)
+            tau, device=device)
 
     def push(self, state, action, reward, done):
         """Saves a transition."""

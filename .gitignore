@@ -3,6 +3,7 @@ runs
 runs_old
 models
 c_cpp_properties.json
+*.pkl
 
 # vs code
 settings.json

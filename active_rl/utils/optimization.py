@@ -4,6 +4,7 @@ import torch.nn.functional as F
 # from baselines.deepq.replay_buffer import PrioritizedReplayBuffer
 from .priority_replay import PrioritizedReplayBuffer
 from .acquisition_functions import ens_BALD
+from torch.distributions import Dirichlet
 
 
 def standard_optimization(policy_net, target_net, optimizer, memory, batch_size=128,
@@ -236,6 +237,34 @@ def _AMN_optimization_ENS(AMN_net, expert_net, optimizer, state_batch, ens_num=N
     return loss.detach()
 
 
+def _AMN_optimization_ENS_mixture(AMN_net, expert_net, optimizer, state_batch, feature_regression=False, tau=0.1,
+                                  beta=0.01, GAMMA=0.99, training=True):
+    """
+    Apply the standard procedure to deep Q network.
+    """
+    if not training:
+        return None
+
+    AMN_policy = 0
+    alpha = Dirichlet(torch.ones(AMN_net.get_num_ensembles())).sample()
+
+    for i in range(AMN_net.get_num_ensembles()):
+        AMN_q_value = AMN_net(state_batch, ens_num=i, last_layer=False)
+        AMN_policy += alpha[i] * to_policy(AMN_q_value)
+        loss = 0
+
+    expert_q_value = expert_net(state_batch, last_layer=False)
+    expert_policy = to_policy(expert_q_value).detach()
+
+    loss -= torch.sum(expert_policy * torch.log(AMN_policy + 1e-8))
+
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+    return loss.detach()
+
+
 def AMN_perc_optimization_ENS(AMN_net, expert_net, optimizer, memory, feature_regression=False, tau=0.1,
                               percentage=0.1, beta=0.01, batch_size=256, GAMMA=0.99, training=True,
                               device='cuda'):
@@ -275,14 +304,25 @@ def AMN_optimization_ensemble_epochs(AMN_net, expert_net, optimizer, memory, epo
     return loss
 
 
-def AMN_optimization_ensemble(AMN_net, expert_net, optimizer, memory,
+def AMN_optimization_ensemble(AMN_net, expert_net, optimizer, memory, tau=0.1,
                               batch_size=128, GAMMA=0.99, device='cuda'):
     loss = 0
     bs, _, _, _, _ = memory.sample(batch_size=batch_size)
     bs = bs.to(device)
     for ens_num in range(AMN_net.get_num_ensembles()):
         loss += _AMN_optimization_ENS(AMN_net, expert_net,
-                                      optimizer, bs, ens_num=ens_num,  GAMMA=GAMMA)
+                                      optimizer, bs, tau=tau, ens_num=ens_num,  GAMMA=GAMMA)
+    return loss / AMN_net.get_num_ensembles()
+
+
+def AMN_optimization_ensemble_mixture(AMN_net, expert_net, optimizer, memory,
+                                      batch_size=128, GAMMA=0.99, device='cuda'):
+    loss = 0
+    bs, _, _, _, _ = memory.sample(batch_size=batch_size)
+    bs = bs.to(device)
+    for ens_num in range(AMN_net.get_num_ensembles()):
+        loss += _AMN_optimization_ENS_mixture(AMN_net, expert_net,
+                                              optimizer, bs,  GAMMA=GAMMA)
     return loss / AMN_net.get_num_ensembles()
 
 
