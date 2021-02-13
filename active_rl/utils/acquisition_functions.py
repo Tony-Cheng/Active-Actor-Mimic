@@ -130,6 +130,16 @@ def ens_BALD(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
     return entropy + cond_entropy
 
 
+def ens_BALD_wrapper(policy_net, tau, batch_size, device):
+    return lambda states: ens_BALD(policy_net, states, tau=tau, batch_size=batch_size, device=device)
+
+def ens_neg_BALD_wrapper(policy_net, tau, batch_size, device):
+    return lambda states: -ens_BALD(policy_net, states, tau=tau, batch_size=batch_size, device=device)
+
+def ens_random_wrapper(policy_net, tau, batch_size, device):
+    return lambda states: ens_random(policy_net, states, tau=tau, batch_size=batch_size, device=device)
+
+
 # def ens_policy_prob(policy_net, states, tau, batch_size, device):
 #     num_states = states.shape[0]
 #     policy_probs = torch.zeros((num_states), dtype=torch.float)
