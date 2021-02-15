@@ -213,6 +213,42 @@ class GenericRankedReplayMemory(object):
         return self.size
 
 
+class GenericRankedDoubleStatesReplayMemory(object):
+    def __init__(self, capacity, state_shape, n_actions, rank_func):
+        c, h, w = state_shape
+        self.capacity = capacity
+        self.m_states = torch.zeros((capacity, c, h, w), dtype=torch.uint8)
+        self.m_actions = torch.zeros((capacity, 1), dtype=torch.long)
+        self.m_rewards = torch.zeros((capacity, 1), dtype=torch.int8)
+        self.m_dones = torch.zeros((capacity, 1), dtype=torch.bool)
+        self.position = 0
+        self.size = 0
+        self.rank_func = rank_func
+
+    def push(self, state, action, reward, done):
+        """Saves a transition."""
+        self.m_states[self.position] = state  # 5,84,84
+        self.m_actions[self.position, 0] = action
+        self.m_rewards[self.position, 0] = reward
+        self.m_dones[self.position, 0] = done
+        self.position = (self.position + 1) % self.capacity
+        self.size = max(self.size, self.position)
+
+    def label_percentage(self, percentage):
+        _, i = torch.sort(self.rank_func(self.m_states[: self.size, :4], self.m_states[: self.size, :4]),
+                          descending=True)
+        i = i[: int(percentage * self.size)]
+        i = i[torch.randperm(i.shape[0])]
+        bs = self.m_states[i]
+        ba = self.m_actions[i]
+        br = self.m_rewards[i].float()
+        bd = self.m_dones[i].float()
+        return bs, ba, br, bd
+
+    def __len__(self):
+        return self.size
+
+
 class GenericLabelledReplayMemory():
     def __init__(self, rank_buffer, labelled_buffer):
         self.labeled_buffer = labelled_buffer

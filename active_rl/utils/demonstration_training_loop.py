@@ -30,7 +30,8 @@ standard_config = {
     'batch_size': 64,
     'device': None,
     'rank_func': None,
-    'epochs': 40
+    'epochs': 40,
+    'demo_epoch_training_func': demo_optimization_ens_epochs
 }
 
 std_demo_config = {
@@ -106,11 +107,11 @@ def active_demonstration_training_single_loop(config):
     lambda2 = config['lambda2']
     gamma = config['gamma']
     epochs = config['epochs']
+    demo_epoch_training_func = config['demo_epoch_training_func']
     memory_id = random.randint(0, num_memory - 1)
     memory = GenericRankedRolloutOfflineReplayMemory(
         config['file_name'] + f'/{memory_id}.pkl', config['gamma'], config['rollout_length'], config['rank_func'])
-    return demo_optimization_ens_epochs(policy_net, target_net, memory,
-                                        optimizer, gamma, lambda1, lambda2, batch_size, epochs, device)
+    return demo_epoch_training_func(policy_net, target_net, memory, optimizer, gamma, lambda1, lambda2, batch_size, epochs, device)
 
 
 def active_demo_std_training(config):

@@ -133,8 +133,45 @@ def ens_BALD(policy_net, states, tau=0.1, batch_size=128, device='cuda'):
 def ens_BALD_wrapper(policy_net, tau, batch_size, device):
     return lambda states: ens_BALD(policy_net, states, tau=tau, batch_size=batch_size, device=device)
 
+
+def ens_BALD_diff_wrapper(policy_net, tau, alpha, batch_size, device, writer=None):
+    global counter
+    counter = 0
+
+    def compute_ens_BALD_diff(states, next_states):
+        global counter
+        states_BALD = ens_BALD(policy_net, states, tau=tau,
+                               batch_size=batch_size, device=device)
+        next_states_BALD = ens_BALD(
+            policy_net, next_states, tau=tau, batch_size=batch_size, device=device)
+        BALD_diff = states_BALD - alpha * next_states_BALD
+        if writer is not None:
+            writer.add_scalar('states_BALD_score',
+                              torch.mean(states_BALD), counter)
+            writer.add_scalar('next_states_BALD_score',
+                              torch.mean(next_states_BALD), counter)
+            writer.add_scalar('BALD_diff_score',
+                              torch.mean(BALD_diff), counter)
+            counter += 1
+        return BALD_diff
+    return compute_ens_BALD_diff
+
+
+def mc_BALD_wrapper(policy_net, tau, num_iters, batch_size, device):
+    return lambda states: mc_BALD(policy_net, states, tau=tau, num_iters=num_iters, batch_size=batch_size, device=device)
+
+
+def mc_neg_BALD_wrapper(policy_net, tau, num_iters, batch_size, device):
+    return lambda states: -mc_BALD(policy_net, states, tau=tau, num_iters=num_iters, batch_size=batch_size, device=device)
+
+
+def mc_random_wrapper(policy_net, tau, num_iters, batch_size, device):
+    return lambda states: mc_random(policy_net, states, tau=tau, num_iters=num_iters, batch_size=batch_size, device=device)
+
+
 def ens_neg_BALD_wrapper(policy_net, tau, batch_size, device):
     return lambda states: -ens_BALD(policy_net, states, tau=tau, batch_size=batch_size, device=device)
+
 
 def ens_random_wrapper(policy_net, tau, batch_size, device):
     return lambda states: ens_random(policy_net, states, tau=tau, batch_size=batch_size, device=device)
